@@ -2,6 +2,7 @@
 import { Node, Sprite, Label, Color, view, UIOpacity } from 'cc';
 import { node, sprite, setFrame, label, opacity, hex, rect, gfxNode, anchor } from './UiKit';
 import { Assets } from './Assets';
+import { SkelView } from './SkelView';
 import { Fx, ny } from './Fx';
 import type { World } from '../core/world';
 import { Enemy, Hero } from '../core/types';
@@ -9,6 +10,7 @@ import { Enemy, Hero } from '../core/types';
 export class EntView {
     root: Node; body: Sprite; flash: Sprite; shadow: Node; hpBar: Node | null = null; hpG: any = null;
     pose = ''; who: string; ds: number; shadowW: number; lastX = 0; lastY = 0; moving = false; spawnT = 0;
+    skel: SkelView | null = null;
     tintBase = hex('#ffffff'); hpShowT = 0; extra = 1; hitPop = 0;
     constructor(public v: BattleView, who: string, parent: Node, shadowParent: Node, idle: string) {
         this.who = who;
@@ -32,6 +34,12 @@ export class EntView {
         setFrame(this.body, key); setFrame(this.flash, key);
     }
     destroy() { this.root.destroy(); this.shadow.destroy(); }
+    /** Switch between the old single-image hero and the skeletal one. */
+    setSkel(on: boolean, cfg: any) {
+        if (on === !!this.skel) return;
+        if (on) { this.skel = new SkelView(this.root, cfg); this.body.node.active = false; this.flash.node.active = false; this.shadow.active = true; }
+        else { if (this.skel) { this.skel.root.destroy(); this.skel = null; } this.body.node.active = true; this.flash.node.active = true; }
+    }
 }
 
 export class BattleView {
@@ -68,6 +76,7 @@ export class BattleView {
         this.dim = rect(this.overlay, vs.width + 40, vs.height + 40, hex('#05030a')).node; this.dimOp = opacity(this.dim, 0);
         this.flashN = rect(this.overlay, vs.width + 40, vs.height + 40, hex('#ffffff')).node; this.flashOp = opacity(this.flashN, 0);
         this.hero = new EntView(this, 'hero', this.ents, this.shadows, 'idle');
+        this.hero.setSkel(SkelView.enabled && !!Assets.heroRig, cfg);
     }
 
     private addBg(key: string, par: number, y: number, sc = 1, alpha = 255) {
@@ -206,6 +215,16 @@ export class BattleView {
             case 'hurt': pose = 'hurt'; ox = -h.face * 4 * Math.max(0, 1 - st / 0.2); break;
             case 'dead': pose = 'dead'; break;
             case 'ult': pose = 'cast'; oz = Math.min(30, st * 60); break;
+        }
+        if (v.skel) {
+            // skeletal renderer owns pose/scale/rotation; root still carries logical position
+            if (frozen) ox += (Math.random() - 0.5) * 4;
+            v.root.setPosition(h.x + ox * h.face, ny(h.y, h.z + oz), 0);
+            v.skel.update(h, frozen ? 0 : dt, frozen);
+            v.skel.rootOp.opacity = h.invuln > 0 && h.state !== 'dodge' && Math.floor(t * 20) % 2 === 0 ? 120 : 255;
+            (v.root as any)._sortY = h.y;
+            this.placeShadow(v, h.x, h.y, h.z);
+            return;
         }
         v.setPose(pose);
         if (frozen) ox += (Math.random() - 0.5) * 4;

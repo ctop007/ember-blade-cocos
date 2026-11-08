@@ -1,0 +1,12 @@
+import { chromium } from 'playwright';
+const W=844,H=390;
+const b=await chromium.launch({channel:'chrome'});
+const p=await b.newPage({viewport:{width:W,height:H},hasTouch:true,isMobile:true,deviceScaleFactor:2});
+await p.goto('http://127.0.0.1:8942/?debug');
+await p.waitForFunction(()=>window.__AI_BRIDGE__?.state().phase==='home');
+await p.waitForTimeout(700);
+const sp=await p.evaluate(()=>window.__AI_BRIDGE__.uiPos(0,-88)); await p.touchscreen.tap(sp.x,sp.y);
+await p.waitForFunction(()=>window.__AI_BRIDGE__.state().phase==='fight',null,{timeout:15000});
+await p.waitForTimeout(2000);
+console.log(JSON.stringify(await p.evaluate(()=>window.__AI_BRIDGE__.hudDebug ? window.__AI_BRIDGE__.hudDebug() : 'nodbg')));
+await b.close();

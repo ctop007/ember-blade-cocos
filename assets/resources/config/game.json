@@ -125,6 +125,21 @@
   "cooldown": 0.6,
   "afterimages": 4
  },
+ "feel": {
+  "_doc": "第二阶段手感层（ANIMATION.md §3.3）。inputBuffer：按键在不可行动时保留多久，可行动的第一帧自动执行。attackCancelAt：普攻第 n 段从开始算起多少秒后，后摇可被下一段普攻/跳跃/技能取消（闪避随时可取消普攻）；必须晚于 hitAt。lungeFrac/lungeEase：普攻前冲在前 lungeFrac×duration 内完成，按曲线前快后慢。thrustEase：蓄力突刺位移曲线。fade*：骨骼动画交叉淡入时长（只影响表现）。",
+  "inputBuffer": 0.15,
+  "attackCancelAt": [
+   0.18,
+   0.19,
+   0.3
+  ],
+  "lungeFrac": 0.45,
+  "lungeEase": "cubicOut",
+  "thrustEase": "quadOut",
+  "fadeDefault": 0.08,
+  "fadeFast": 0.06,
+  "fadeSlow": 0.12
+ },
  "jump": {
   "velocity": 820,
   "airControl": 0.85,

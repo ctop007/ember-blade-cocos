@@ -72,9 +72,31 @@
   "fx/flash_star",
   "fx/ult_portrait",
   "fx/ult_banner",
+  "ui/joystick_base",
+  "ui/joystick_knob",
+  "ui/btn_attack",
+  "ui/btn_jump",
+  "ui/btn_dodge",
+  "ui/btn_frame",
+  "ui/icon_skill1",
+  "ui/icon_skill2",
+  "ui/icon_skill3",
+  "ui/icon_ult",
+  "ui/btn_ult_frame",
+  "ui/btn_pause",
+  "ui/avatar",
+  "ui/bar_frame",
+  "ui/bar_fill",
+  "ui/card_common",
+  "ui/card_rare",
+  "ui/card_epic",
+  "ui/card_back",
   "ui/logo",
   "ui/home_bg",
-  "ui/app-icon"
+  "ui/btn_primary",
+  "ui/panel",
+  "ui/app-icon",
+  "ui/boss_title"
  ],
  "audio": [
   "audio/sfx/swing1",
@@ -106,8 +128,8 @@
   "audio/sfx/defeat",
   "audio/bgm/battle_loop"
  ],
- "manifestUpdated": "2026-11-08T22:52:40",
- "synced": "2026-11-08T14:53:15.003Z",
+ "manifestUpdated": "2026-11-08T23:36:54",
+ "synced": "2026-11-08T15:53:35.798Z",
  "ogg": [
   "audio/sfx/swing1",
   "audio/sfx/swing2",
@@ -167,5 +189,8 @@
   "audio/sfx/victory",
   "audio/sfx/defeat",
   "audio/bgm/battle_loop"
+ ],
+ "rigs": [
+  "hero"
  ]
 }

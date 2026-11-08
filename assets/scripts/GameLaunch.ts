@@ -9,6 +9,7 @@ import { SkillFx } from './view/SkillFx';
 import { Hud } from './view/Hud';
 import { TouchInput } from './view/TouchInput';
 import { RigTestView } from './view/RigTestView';
+import { SkelView } from './view/SkelView';
 import { Screens, onTap } from './view/Screens';
 const { ccclass } = _decorator;
 
@@ -33,6 +34,8 @@ export class GameLaunch extends Component {
 
     async start() {
         view.setDesignResolutionSize(1280, 720, ResolutionPolicy.FIXED_HEIGHT);
+        // skeletal hero is the default; ?rig=0 / ?rig=1 forces old/skel (comparison switch)
+        try { const q = (globalThis as any).window?.location?.search || ''; const m = /[?&]rig=(\d)/.exec(q); if (m) SkelView.enabled = m[1] !== '0'; } catch (e) { /* default */ }
         const vs = view.getVisibleSize();
         this.node.getComponent(UITransform)?.setContentSize(vs.width, vs.height);
         this.gameRoot = node('Game', this.node);
@@ -211,6 +214,24 @@ export class GameLaunch extends Component {
                 if (on) self.rigTest = new RigTestView(self.uiRoot);
             },
             rigFreeze(on: boolean) { if (self.rigTest) self.rigTest.frozen = on; },
+            hudDebug() {
+                if (!self.hud) return null;
+                const out: any = {};
+                for (const id of ['attack', 'dodge', 'jump', 'skill1', 'skill2', 'skill3', 'ult']) {
+                    const n = self.hud.button(id); if (!n) { out[id] = null; continue; }
+                    const wp = n.worldPosition;
+                    out[id] = { x: Math.round(n.position.x), y: Math.round(n.position.y), wp: [Math.round(wp.x), Math.round(wp.y)], active: n.activeInHierarchy, scale: n.scale.x, size: [n.getComponent(UITransform)?.width, n.getComponent(UITransform)?.height], children: n.children.length };
+                }
+                const dump = (id: string) => {
+                    const n = self.hud!.button(id); if (!n) return null;
+                    const tw: any = (window as any).cc?.director?.getScene?.();
+                    return n.children.map((c: any) => ({ name: c.name, active: c.activeInHierarchy, pos: [Math.round(c.position.x), Math.round(c.position.y)], size: [Math.round(c.getComponent(UITransform)?.width || 0), Math.round(c.getComponent(UITransform)?.height || 0)], scale: c.scale.x, op: c.getComponent('cc.UIOpacity')?.opacity, color: c.getComponent('cc.Sprite')?.color ? [c.getComponent('cc.Sprite').color.r, c.getComponent('cc.Sprite').color.g, c.getComponent('cc.Sprite').color.b, c.getComponent('cc.Sprite').color.a] : null }));
+                };
+                out.dump1 = dump('skill1'); out.dump3 = dump('skill3');
+                return out;
+            },
+            rigMode(on: boolean) { SkelView.enabled = on; if (self.bv) self.bv.hero.setSkel(on && !!Assets.heroRig, self.cfg); return SkelView.enabled; },
+            rigInfo() { const sk = self.bv?.hero.skel; return { skel: !!sk, clips: sk ? Object.keys(sk.player.clips).length : 0, parts: Object.keys(Assets.heroParts).length }; },
             rigState() { const r = self.rigTest; return r ? { name: r.player.name, time: r.player.time, events: r.eventCounts, tip: r.player.socket('spearTip'), triangles: r.trail.indices.length / 3 } : null; },
             state() {
                 const w = self.world;

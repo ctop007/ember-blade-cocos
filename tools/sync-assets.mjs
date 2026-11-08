@@ -15,8 +15,8 @@ const m = JSON.parse(fs.readFileSync(path.join(src, 'manifest.json'), 'utf8'));
 
 const avail = { images: [], audio: [], manifestUpdated: m.updated, synced: new Date().toISOString() };
 let copied = 0, skipped = 0;
-function copy(rel, to = rel) {
-    const a = path.join(src, rel), b = path.join(dst, to);
+function copy(rel, to = rel, absSrc, absTo) {
+    const a = absSrc || path.join(src, rel), b = path.join(dst, absTo || to);
     if (!fs.existsSync(a)) return false;
     fs.mkdirSync(path.dirname(b), { recursive: true });
     const sa = fs.statSync(a);
@@ -48,4 +48,18 @@ if (fs.existsSync(cfgSrc)) {
 // local manifest copy without voice entries, so no voice reference reaches Web/APK builds
 fs.writeFileSync(path.join(dst, 'config/manifest.json'), JSON.stringify({ ...m, assets: m.assets.filter(it => !(it.type === 'audio' && VOICE.test(it.path))) }, null, 1));
 fs.writeFileSync(path.join(dst, 'config/available.json'), JSON.stringify(avail, null, 1));
+// skeletal rigs: _shared/rigs/<name>/{rig.json,anims.json,parts/*.png} -> resources/rigs/<name>/
+const rigsSrc = path.join(shared, 'rigs');
+const rigInfo = [];
+if (fs.existsSync(rigsSrc)) for (const name of fs.readdirSync(rigsSrc)) {
+    const dir = path.join(rigsSrc, name);
+    if (!fs.statSync(dir).isDirectory() || !fs.existsSync(path.join(dir, 'rig.json'))) continue;
+    for (const f of ['rig.json', 'anims.json']) if (fs.existsSync(path.join(dir, f))) copy('', '', path.join(dir, f), `rigs/${name}/${f}`);
+    const parts = path.join(dir, 'parts');
+    let n = 0;
+    if (fs.existsSync(parts)) for (const f of fs.readdirSync(parts)) if (f.endsWith('.png')) { copy('', '', path.join(parts, f), `rigs/${name}/parts/${f}`); n++; }
+    rigInfo.push({ name, parts: n, anims: fs.existsSync(path.join(dir, 'anims.json')) });
+}
+if (rigInfo.length) { avail.rigs = rigInfo.map(r => r.name); fs.writeFileSync(path.join(dst, 'config/available.json'), JSON.stringify(avail, null, 1)); }
+console.log('rigs', JSON.stringify(rigInfo));
 console.log(`ready images=${avail.images.length} audio=${avail.audio.length} copied=${copied} pending=${skipped}`);

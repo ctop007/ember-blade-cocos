@@ -6,7 +6,7 @@ import { TrailStrip } from './TrailStrip';
 export class HeroAnimation {
     trail = new TrailStrip(); private stateKey = ''; private lastStateTime = -1;
     constructor(public player: RigPlayer, public cfg: any) {}
-    update(hero: Hero, simulationDt: number, face = hero.face) {
+    update(hero: Hero, simulationDt: number, face = hero.face, local = false) {
         if (simulationDt <= 0) return; // freezes crossfade, springs, events and ribbon during hitstop/pause
         const h = hero, c = this.cfg;
         const names: { [key: string]: string } = { attack: 'attack' + (h.atkStep + 1), jump: h.vz > 0 ? 'jump_up' : 'jump_fall', cast: h.castSkill === 'crescent' ? 'cast_crescent' : h.castSkill === 'skyfall' ? 'cast_skyfall' : 'cast_meteor', thrustRec: 'thrust' };
@@ -37,6 +37,6 @@ export class HeroAnimation {
             else if (e.name === 'trail_off') this.trail.enabled = false;
         }
         const tip = this.player.socket('spearTip'), scale = (this.player.rig.displayScale ?? .6) * (this.player.rig.unitsPerPixel ?? 1);
-        this.trail.update(simulationDt, tip ? { x: h.x + tip.x * face * scale, y: h.y - h.z + tip.y * scale } : null);
+        this.trail.update(simulationDt, tip ? (local ? { x: tip.x, y: tip.y } : { x: h.x + tip.x * face * scale, y: h.y - h.z + tip.y * scale }) : null);
     }
 }
