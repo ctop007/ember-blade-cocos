@@ -13,7 +13,10 @@
     "gravity": 2600,
     "cameraLerp": 8.0,
     "cameraLookAhead": 80,
-    "arenaLockPerWave": true
+    "arenaLockPerWave": true,
+    "arenas": [[0, 1400], [1200, 2600], [2400, 3840], [2400, 3840]],
+    "waveTriggerOffset": 260,
+    "spawnMargin": 60
   },
 
   "player": {

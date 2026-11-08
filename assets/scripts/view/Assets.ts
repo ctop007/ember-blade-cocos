@@ -1,0 +1,91 @@
+/** Promise-based resource loading. Real assets from resources/ (listed in config/available.json), canvas placeholders otherwise. */
+import { resources, JsonAsset, SpriteFrame, ImageAsset, Texture2D, AudioClip, Asset } from 'cc';
+import { drawPlaceholder } from './PlaceholdersFx';
+
+function load<T extends Asset>(path: string, type: any): Promise<T | null> {
+    return new Promise(res => resources.load(path, type, (err: any, a: T) => res(err ? null : a)));
+}
+
+interface ManItem { path: string; type: string; size?: number[]; anchor?: number[]; status?: string; displayScale?: number; }
+
+export class Assets {
+    static cfg: any;
+    static manifest: { [key: string]: ManItem } = {};
+    static frames: { [key: string]: SpriteFrame } = {};
+    static real: { [key: string]: boolean } = {};
+    static clips: { [key: string]: AudioClip } = {};
+    static avail = { images: [] as string[], audio: [] as string[] };
+
+    /** Load config + manifest + all ready assets. onProgress(0..1). */
+    static async init(onProgress: (p: number, label: string) => void) {
+        onProgress(0.02, '读取配置');
+        const cfg = await load<JsonAsset>('config/game', JsonAsset);
+        this.cfg = cfg ? cfg.json : null;
+        const man = await load<JsonAsset>('config/manifest', JsonAsset);
+        if (man) for (const it of (man.json as any).assets) this.manifest[it.path.replace(/\.png$/, '')] = it;
+        const av = await load<JsonAsset>('config/available', JsonAsset);
+        if (av) this.avail = av.json as any;
+        const imgs = (this.avail.images || []).concat(['ui/qr/qr-group', 'ui/qr/qr-author']), auds = this.avail.audio || [];
+        const total = imgs.length + auds.length + 1;
+        let done = 0;
+        const tick = (label: string) => { done++; onProgress(0.05 + 0.9 * done / total, label); };
+        // load in small parallel batches
+        const jobs: (() => Promise<void>)[] = [];
+        for (const k of imgs) jobs.push(async () => {
+            const f = await load<SpriteFrame>(k + '/spriteFrame', SpriteFrame);
+            if (f) { this.frames[k] = f; this.real[k] = true; }
+            tick('加载美术');
+        });
+        for (const k of auds) jobs.push(async () => {
+            const c = await load<AudioClip>(k, AudioClip);
+            if (c) this.clips[k] = c;
+            tick('加载音效');
+        });
+        let i = 0;
+        const worker = async () => { while (i < jobs.length) { const j = jobs[i++]; await j(); } };
+        await Promise.all([worker(), worker(), worker(), worker(), worker(), worker()]);
+        tick('准备场景');
+        onProgress(1, '完成');
+    }
+
+    static size(key: string): [number, number] {
+        const it = this.manifest[key];
+        if (it && it.size) return [it.size[0], it.size[1]];
+        return [128, 128];
+    }
+
+    /** Anchor in Cocos convention (0,0 = bottom-left). Manifest uses top-left origin. */
+    static anchor(key: string): [number, number] {
+        const it = this.manifest[key];
+        if (it && it.anchor) return [it.anchor[0], 1 - it.anchor[1]];
+        return [0.5, 0.5];
+    }
+
+    /** Recommended display scale from manifest (chars). */
+    static displayScale(key: string): number {
+        const it = this.manifest[key];
+        return it && it.displayScale ? it.displayScale : 1;
+    }
+
+    static isReal(key: string): boolean { return !!this.real[key]; }
+
+    static frame(key: string): SpriteFrame {
+        let f = this.frames[key];
+        if (f) return f;
+        const [w, h] = this.size(key);
+        // keep placeholder textures modest
+        const s = Math.min(1, 1024 / Math.max(w, h));
+        const cw = Math.max(4, Math.round(w * s)), ch = Math.max(4, Math.round(h * s));
+        const canvas = drawPlaceholder(key, cw, ch);
+        const img = new ImageAsset(canvas as any);
+        const tex = new Texture2D();
+        tex.image = img;
+        f = new SpriteFrame();
+        f.texture = tex;
+        (f as any)._placeholderScale = 1 / s;
+        this.frames[key] = f;
+        return f;
+    }
+
+    static clip(key: string): AudioClip | null { return this.clips[key] || null; }
+}

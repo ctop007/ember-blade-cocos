@@ -1,0 +1,21 @@
+{
+ "images": [
+  "chars/hero/idle",
+  "chars/hero/run",
+  "chars/hero/attack1",
+  "chars/hero/attack2",
+  "chars/hero/attack3",
+  "chars/hero/charge",
+  "chars/hero/thrust",
+  "chars/hero/jump",
+  "chars/hero/slam",
+  "chars/hero/dodge",
+  "chars/hero/cast",
+  "chars/hero/hurt",
+  "chars/hero/dead",
+  "chars/hero/shadow"
+ ],
+ "audio": [],
+ "manifestUpdated": "2026-11-08T21:38:16",
+ "synced": "2026-11-08T13:40:21.442Z"
+}
