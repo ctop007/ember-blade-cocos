@@ -220,6 +220,7 @@ export class GameLaunch extends Component {
             setWave(n: number) { self.world?.setWave(n); self.updateMission(); },
             draft() { const w = self.world; if (!w || w.phase === 'draft') return false; w.openDraft(w.phase); return true; },
             timeScale(x: number) { self.timeScale = x; },
+            fillRage() { if (self.world) self.world.hero.rage = self.cfg.player.maxRage; },
             god(on: boolean) { if (self.world) self.world.god = !!on; },
             // helpers for Playwright real-touch tests: client pixel position of UI elements
             buttonPos(id: string) {

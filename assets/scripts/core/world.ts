@@ -269,9 +269,10 @@ export class World {
         if (h.hp <= 0) {
             h.hp = 0; h.state = 'dead'; h.st = 0; this.endT = 0;
             this.emit('heroDead', {});
-        } else if (h.z <= 0) {
+        } else if (h.z <= 0 && h.state !== 'cast') {
+            // skills have super armour: damage + flash still apply, but MP/cooldown are never wasted on an interrupted cast
             h.state = 'hurt'; h.st = 0;
-        }
+        } else if (h.state === 'cast') { h.kx *= 0.3; }
         return true;
     }
 

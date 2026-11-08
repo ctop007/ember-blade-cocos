@@ -79,13 +79,15 @@ await wait(1800);
 }
 // ---- jump + slam ----
 {
+    await wait(300);
+    for (let k = 0; k < 30 && (await S()).heroState !== 'idle'; k++) await wait(60);
+    const sj = await S();
     const e0 = await EV();
-    await wait(700);
     await tapBtn('jump', 40); await wait(200); await tapBtn('attack', 40); await wait(250);
     await page.screenshot({ path: shot('slam') });
     await wait(500);
     const e1 = await EV();
-    check('jump + down slam', (e1.jump || 0) > (e0.jump || 0) && (e1.slamLand || 0) > (e0.slamLand || 0));
+    check('jump + down slam', (e1.jump || 0) > (e0.jump || 0) && (e1.slamLand || 0) > (e0.slamLand || 0), `state before=${sj.heroState} jump=${(e1.jump||0)-(e0.jump||0)} slam=${(e1.slamLand||0)-(e0.slamLand||0)}`);
 }
 
 // ---- steering helpers (joystick finger persists; other fingers tap buttons) ----
@@ -125,6 +127,7 @@ for (const [id, ev, at, name] of [['skill1', 'crescent', 260, 'skill1_crescent']
     check(`skill ${id} (${ev})`, ok, `mp=${s.mp}`);
 }
 
+if (process.env.WIN) await B('god', true); // verify the victory path too (input is still real touch)
 // ---- autopilot to the end; draft via real card taps, ult when ready ----
 let draftsDone = 0, earlyTapIgnored = null, ultDone = false, bossSeen = false, maxEnemies = 0;
 const tEnd = Date.now() + 360000;
