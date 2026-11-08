@@ -20,7 +20,7 @@ function copy(rel, to = rel, absSrc, absTo) {
     if (!fs.existsSync(a)) return false;
     fs.mkdirSync(path.dirname(b), { recursive: true });
     const sa = fs.statSync(a);
-    if (fs.existsSync(b) && fs.statSync(b).size === sa.size && fs.statSync(b).mtimeMs >= sa.mtimeMs) return true;
+    if (fs.existsSync(b) && fs.statSync(b).size === sa.size && fs.readFileSync(a).equals(fs.readFileSync(b))) return true;
     fs.copyFileSync(a, b); copied++;
     return true;
 }

@@ -1,6 +1,6 @@
 # 烬刃 · Cocos Creator 3.8.8 版
 
-横版 2.5D 动作试玩（手机横屏）。代码优先：一个场景 `assets/Main.scene`、一个入口组件 `GameLaunch`，所有 UI 和实体都在 TS 里生成。主角使用 `_shared/rigs/hero` 的骨骼动画（`?rig=0` 可切回旧单图对比）。
+横版 2.5D 动作试玩（手机横屏）。代码优先：一个场景 `assets/Main.scene`、一个入口组件 `GameLaunch`，所有 UI 和实体都在 TS 里生成。主角与 4 类敌人（小鬼、灯笼怪、重甲、Boss）全部使用 `_shared/rigs/` 的骨骼动画（`?rig=0` 可切回旧单图对比）。
 
 ## 本地运行 Web 版（端口 8942）
 

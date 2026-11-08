@@ -91,7 +91,7 @@ export class Hud implements InputHost {
         this.mission = label('', this.root, 0, this.Y(Tc + 12), { size: this.S(13), color: '#fff0d0', outline: '#1a0f14', outlineW: Math.max(1, this.S(2)) });
         this.waveLbl = label('', this.root, 0, this.Y(Tc + 28), { size: this.S(10), color: '#ffb46a', outline: '#1a0f14', outlineW: Math.max(1, this.S(1.5)) });
         // ---- boss bar ----
-        this.bossBar = node('bossbar', this.root, 0, this.Y(Tc + 46));
+        this.bossBar = node('bossbar', this.root, 0, this.Y(Tc + 54));
         const bb = gfxNode(this.bossBar); const bw = this.S(260), bh = this.S(10);
         roundRect(bb, -bw / 2, -bh / 2, bw, bh, bh / 2, hex('#140a12', 230), hex('#ff7a3a'), Math.max(1, this.S(1.5)));
         this.bossFill = gfxNode(this.bossBar);

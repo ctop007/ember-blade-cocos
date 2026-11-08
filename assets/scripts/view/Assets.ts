@@ -22,6 +22,7 @@ export class Assets {
     static real: { [key: string]: boolean } = {};
     static clips: { [key: string]: AudioClip } = {};
     static avail = { images: [] as string[], audio: [] as string[], ogg: [] as string[], mp3: [] as string[], rigs: [] as string[] };
+    static rigs: { [id: string]: { rig: any; anims: any; parts: { [k: string]: SpriteFrame } } } = {};
     static heroRig: any = null; static heroAnims: any = null; static heroParts: { [k: string]: SpriteFrame } = {};
 
     /** Load config + manifest + all ready assets. onProgress(0..1). */
@@ -67,19 +68,24 @@ export class Assets {
         let i = 0;
         const worker = async () => { while (i < jobs.length) { const j = jobs[i++]; await j(); } };
         await Promise.all([worker(), worker(), worker(), worker(), worker(), worker()]);
-        // skeletal hero rig (optional; old sprite renderer stays as fallback)
-        if ((this.avail.rigs || []).indexOf('hero') >= 0) {
-            const rj = await load<JsonAsset>('rigs/hero/rig', JsonAsset), aj = await load<JsonAsset>('rigs/hero/anims', JsonAsset);
-            if (rj && aj) {
-                this.heroRig = rj.json; this.heroAnims = aj.json;
-                const parts = Array.from(new Set(((this.heroRig.slots || []) as any[]).map(sl => String(sl.image).replace(/\.png$/, ''))));
-                await Promise.all(parts.map(async (k: string) => {
-                    const f = await load<SpriteFrame>('rigs/hero/' + k + '/spriteFrame', SpriteFrame);
-                    if (f) this.heroParts[k] = f;
-                }));
-                tick('加载骨骼');
+        // skeletal rigs (hero + enemies; old sprite renderer stays as fallback)
+        for (const id of this.avail.rigs || []) {
+            const rj = await load<JsonAsset>(`rigs/${id}/rig`, JsonAsset), aj = await load<JsonAsset>(`rigs/${id}/anims`, JsonAsset);
+            if (!rj || !aj) continue;
+            const rig = rj.json as any, anims = aj.json as any, parts: { [k: string]: SpriteFrame } = {};
+            const keys = new Set<string>(((rig.slots || []) as any[]).map(sl => String(sl.image).replace(/\.png$/, '')));
+            for (const cn in anims) {
+                const slots = anims[cn]?.slots || {};
+                for (const sn in slots) for (const k of slots[sn] || []) if (k?.image) keys.add(String(k.image).replace(/\.png$/, ''));
             }
+            await Promise.all(Array.from(keys).map(async (k: string) => {
+                const f = await load<SpriteFrame>(`rigs/${id}/${k}/spriteFrame`, SpriteFrame);
+                if (f) parts[k] = f;
+            }));
+            this.rigs[id] = { rig, anims, parts };
+            if (id === 'hero') { this.heroRig = rig; this.heroAnims = anims; this.heroParts = parts; }
         }
+        if (Object.keys(this.rigs).length) tick('加载骨骼');
         tick('准备场景');
         onProgress(1, '完成');
     }

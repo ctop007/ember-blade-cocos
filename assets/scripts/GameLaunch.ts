@@ -230,8 +230,20 @@ export class GameLaunch extends Component {
                 out.dump1 = dump('skill1'); out.dump3 = dump('skill3');
                 return out;
             },
-            rigMode(on: boolean) { SkelView.enabled = on; if (self.bv) self.bv.hero.setSkel(on && !!Assets.heroRig, self.cfg); return SkelView.enabled; },
-            rigInfo() { const sk = self.bv?.hero.skel; return { skel: !!sk, clips: sk ? Object.keys(sk.player.clips).length : 0, parts: Object.keys(Assets.heroParts).length }; },
+            rigMode(on: boolean) {
+                SkelView.enabled = on;
+                if (self.bv) {
+                    self.bv.hero.setSkel(on, self.cfg);
+                    for (const id in self.bv.enemies) self.bv.enemies[id].setSkel(on, self.cfg);
+                }
+                return SkelView.enabled;
+            },
+            rigInfo() {
+                const sk = self.bv?.hero.skel, rigs: any = {};
+                for (const k in Assets.rigs) rigs[k] = { clips: Object.keys(Assets.rigs[k].anims).length, parts: Object.keys(Assets.rigs[k].parts).length };
+                const enemySkels = self.bv ? Object.keys(self.bv.enemies).map(id => { const v = self.bv!.enemies[id as any]; return { who: v.who, skel: !!v.skel, clip: v.skel?.player.name || v.pose }; }) : [];
+                return { skel: !!sk, clips: sk ? Object.keys(sk.player.clips).length : 0, parts: Object.keys(Assets.heroParts).length, rigs, enemySkels };
+            },
             rigState() { const r = self.rigTest; return r ? { name: r.player.name, time: r.player.time, events: r.eventCounts, tip: r.player.socket('spearTip'), triangles: r.trail.indices.length / 3 } : null; },
             state() {
                 const w = self.world;

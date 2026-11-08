@@ -129,7 +129,7 @@
   "audio/bgm/battle_loop"
  ],
  "manifestUpdated": "2026-11-08T23:36:54",
- "synced": "2026-11-08T15:53:35.798Z",
+ "synced": "2026-11-08T16:12:44.628Z",
  "ogg": [
   "audio/sfx/swing1",
   "audio/sfx/swing2",
@@ -191,6 +191,10 @@
   "audio/bgm/battle_loop"
  ],
  "rigs": [
-  "hero"
+  "boss",
+  "brute",
+  "hero",
+  "imp",
+  "lantern"
  ]
 }

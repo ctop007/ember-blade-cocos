@@ -34,10 +34,11 @@ export class EntView {
         setFrame(this.body, key); setFrame(this.flash, key);
     }
     destroy() { this.root.destroy(); this.shadow.destroy(); }
-    /** Switch between the old single-image hero and the skeletal one. */
+    /** Switch between the old single-image character and the skeletal one. */
     setSkel(on: boolean, cfg: any) {
-        if (on === !!this.skel) return;
-        if (on) { this.skel = new SkelView(this.root, cfg); this.body.node.active = false; this.flash.node.active = false; this.shadow.active = true; }
+        const avail = on && !!(Assets.rigs[this.who] || (this.who === 'hero' && Assets.heroRig));
+        if (avail === !!this.skel) return;
+        if (avail) { this.skel = new SkelView(this.root, cfg, this.who); this.body.node.active = false; this.flash.node.active = false; this.shadow.active = true; }
         else { if (this.skel) { this.skel.root.destroy(); this.skel = null; } this.body.node.active = true; this.flash.node.active = true; }
     }
 }
@@ -161,6 +162,7 @@ export class BattleView {
             if (!v) {
                 v = new EntView(this, e.type, this.ents, this.shadows, 'idle');
                 v.lastX = e.x; v.lastY = e.y;
+                v.setSkel(SkelView.enabled, this.cfg);
                 if (e.type !== 'boss') { v.hpG = gfxNode(v.root, 'hp'); v.hpBar = v.hpG.node; }
                 this.enemies[e.id] = v;
             }
@@ -268,30 +270,39 @@ export class BattleView {
         if (e.type === 'lantern' && e.state !== 'dead') oz = 22 + Math.sin(t * 3 + e.id) * 8;
         if (v.moving && e.type === 'imp') oz += Math.abs(Math.sin(t * 16 + e.id)) * 4;
         if (v.moving && (e.type === 'brute' || e.type === 'boss')) sy *= 1 + Math.sin(t * 8 + e.id) * 0.02;
-        v.setPose(pose);
         if (frozen && e.flashT > 0) ox += (Math.random() - 0.5) * 6;
         v.hitPop = Math.max(0, v.hitPop - dt * 6);
         const pop = 1 + v.hitPop * 0.12;
-        v.root.setPosition(e.x + ox, ny(e.y, e.z + oz), 0);
-        v.body.node.setScale(sx * e.face * pop, sy * pop, 1);
-        v.body.node.angle = rot * e.face;
-        (v.root as any)._sortY = e.y;
-        this.placeShadow(v, e.x, e.y, e.z + (e.type === 'lantern' ? oz * 0.5 : 0));
-        // flash white on hit
-        opacity(v.flash.node, e.flashT > 0 ? 255 : 0);
         // tint
         let col = '#ffffff';
         if (e.type === 'boss' && e.enraged) col = Math.floor(t * 4) % 2 ? '#ff8a7a' : '#ff6a5a';
         if (e.state === 'windup') col = Math.floor(t * 18) % 2 ? '#ffb0a0' : col;
-        v.body.color = hex(col);
         // fade in on spawn, fade out on death
         let a = 255;
         if (e.state === 'dead') a = Math.max(0, 255 * (1 - Math.max(0, e.deadT - 0.4) / 0.6));
-        opacity(v.body.node, a);
-        opacity(v.shadow, (e.state === 'dead' ? a / 255 : 1) * 200);
-        if (e.state === 'dead') { v.body.node.angle = -e.face * Math.min(80, e.deadT * 400); }
+        if (v.skel) {
+            v.root.setPosition(e.x + ox, ny(e.y, e.z), 0);
+            v.skel.updateEnemy(e, v.moving, frozen ? 0 : dt, frozen, col, pop);
+            v.skel.rootOp.opacity = a;
+            (v.root as any)._sortY = e.y;
+            this.placeShadow(v, e.x, e.y, e.z);
+            opacity(v.shadow, (e.state === 'dead' ? a / 255 : 1) * 200);
+        } else {
+            v.setPose(pose);
+            v.root.setPosition(e.x + ox, ny(e.y, e.z + oz), 0);
+            v.body.node.setScale(sx * e.face * pop, sy * pop, 1);
+            v.body.node.angle = rot * e.face;
+            (v.root as any)._sortY = e.y;
+            this.placeShadow(v, e.x, e.y, e.z + (e.type === 'lantern' ? oz * 0.5 : 0));
+            opacity(v.flash.node, e.flashT > 0 ? 255 : 0);
+            v.body.color = hex(col);
+            opacity(v.body.node, a);
+            opacity(v.shadow, (e.state === 'dead' ? a / 255 : 1) * 200);
+            if (e.state === 'dead') { v.body.node.angle = -e.face * Math.min(80, e.deadT * 400); }
+        }
         // hp bar
         if (v.hpBar) {
+            v.hpBar.setSiblingIndex(v.root.children.length - 1);
             const g = v.hpG; g.clear();
             if (e.hp < e.maxHp && e.state !== 'dead') {
                 const [, h0] = Assets.size(`chars/${e.type}/idle`);
