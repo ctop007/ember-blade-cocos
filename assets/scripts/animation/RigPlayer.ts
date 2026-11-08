@@ -62,7 +62,13 @@ export class RigPlayer {
     play(name: string, target?: Phases, blend = .08, restart = false) {
         if (this.name === name && !restart) return;
         const c = this.clips[name]; if (!c) throw new Error('Missing animation ' + name);
-        if (target && !(target.windup >= 0 && target.active >= target.windup && target.recovery > target.active)) throw new Error('Invalid target phases');
+        // Boundary times are clamped rather than rejected: clips where active == recovery would otherwise yield an
+        // empty segment as soon as gameplay timing squeezes them onto the same instant.
+        if (target) {
+            if (!(target.recovery > 0)) throw new Error('Invalid target phases');
+            target = { recovery: target.recovery, active: Math.max(0, Math.min(target.active, target.recovery * .98)), windup: 0 };
+            target.windup = Math.max(0, Math.min(target.active, target.windup));
+        }
         this.from = {}; for (const b of this.order) this.from[b.name] = { ...this.pose[b.name] };
         this.blend = this.name ? Math.max(.06, Math.min(.12, blend)) : 0; this.blendTime = 0;
         this.name = name; this.time = 0; this.target = target;
