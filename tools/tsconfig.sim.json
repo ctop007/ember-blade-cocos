@@ -1,0 +1,4 @@
+{
+  "compilerOptions": { "target": "es2019", "module": "commonjs", "outDir": "../temp/sim", "strict": false, "noImplicitAny": false, "skipLibCheck": true, "types": [] },
+  "files": ["sim.ts"]
+}
