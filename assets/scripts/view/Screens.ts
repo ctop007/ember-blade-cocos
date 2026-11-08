@@ -1,10 +1,14 @@
 /** Code-built screens: loading, home, QR, draft (3-pick), pause, result, banners, ult cut-in. */
 import { Node, Label, tween, Vec3, BlockInputEvents, UIOpacity, Color } from 'cc';
 import { node, sprite, label, opacity, hex, rect, size, gfxNode, roundRect } from './UiKit';
+import { Assets } from './Assets';
 import { Sfx } from './Sfx';
 import type { CardDef } from '../core/cards';
 
 /** Tap handler with press feedback. */
+/** Engine-scheduled delay (window.setTimeout is unreliable on native). Cancelled if the node is destroyed. */
+function after(n: Node, sec: number, cb: () => void) { tween(n).delay(sec).call(cb).start(); }
+
 export function onTap(n: Node, cb: () => void) {
     const base = n.scale.x;
     n.on(Node.EventType.TOUCH_START, () => n.setScale(base * 0.92, base * 0.92));
@@ -63,7 +67,7 @@ export class Screens {
         label(version, n, this.halfW - 20, -this.halfH + 20, { size: 15, color: '#a89080', align: 'right' });
         // input lock briefly so the loading tap can't fall through
         const lock = node('lock', n); size(lock, this.halfW * 2, this.halfH * 2); lock.addComponent(BlockInputEvents);
-        setTimeout(() => { if (lock.isValid) lock.destroy(); }, 350);
+        after(n, 0.35, () => { if (lock.isValid) lock.destroy(); });
         onTap(start, onStart);
         onTap(join, () => this.qr());
         fade(n, 0, 255, 0.3);
@@ -114,8 +118,10 @@ export class Screens {
 
     ultCutin(name: string, dur: number) {
         const n = node('UltCutin', this.root);
-        const band = sprite('fx/ult_banner', n, this.halfW * 2 + 200, 220, { color: hex('#ff8a3a'), additive: false });
-        band.node.setPosition(0, -30);
+        // banner art is full-colour, anchored at its left edge (manifest anchor [0, 0.5])
+        const real = Assets.isReal('fx/ult_banner');
+        const band = sprite('fx/ult_banner', n, this.halfW * 2 + 200, 220, real ? { additive: false } : { color: hex('#ff8a3a'), additive: false });
+        band.node.setPosition(real ? -this.halfW - 100 : 0, -30);
         const bop = opacity(band.node, 0);
         tween(bop).to(0.12, { opacity: 220 }).start();
         band.node.setScale(0.1, 1); tween(band.node).to(0.18, { scale: new Vec3(1, 1, 1) }, { easing: 'cubicOut' }).start();
@@ -202,7 +208,7 @@ export class Screens {
                 tween(card).to(0.12, { scale: new Vec3(1.12, 1.12, 1) }).start();
                 views.forEach((o, j) => { if (j !== i) tween(opacity(o)).to(0.15, { opacity: 60 }).start(); });
                 tween(opacity(n)).delay(0.25).to(0.18, { opacity: 0 }).call(() => n.destroy()).start();
-                setTimeout(() => onPick(i), 260);
+                after(this.root, 0.26, () => onPick(i));
             });
         });
         (n as any)._cards = views;
@@ -245,7 +251,7 @@ export class Screens {
         panel.setScale(0.6, 0.6);
         tween(panel).delay(0.2).to(0.3, { scale: new Vec3(1, 1, 1) }, { easing: 'backOut' }).start();
         const lock = node('lock', n); size(lock, this.halfW * 2, this.halfH * 2); lock.addComponent(BlockInputEvents);
-        setTimeout(() => { if (lock.isValid) lock.destroy(); }, 700);
+        after(n, 0.7, () => { if (lock.isValid) lock.destroy(); });
         onTap(a, () => { n.destroy(); onAgain(); });
         onTap(b, () => { n.destroy(); onHome(); });
         Sfx.play(win ? 'victory' : 'defeat');

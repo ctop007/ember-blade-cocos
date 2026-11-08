@@ -1,1 +1,0 @@
-{ "world": { "groundTop": 440 }, "enemies": { "boss": { "moves": { "sweep": { "range": 200 } } } } }

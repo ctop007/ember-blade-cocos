@@ -1,0 +1,26 @@
+{
+ "keys": [
+  "ui/joystick_base",
+  "ui/joystick_knob",
+  "ui/btn_attack",
+  "ui/btn_jump",
+  "ui/btn_dodge",
+  "ui/btn_frame",
+  "ui/icon_skill1",
+  "ui/icon_skill2",
+  "ui/icon_skill3",
+  "ui/icon_ult",
+  "ui/btn_ult_frame",
+  "ui/btn_pause",
+  "ui/avatar",
+  "ui/bar_frame",
+  "ui/bar_fill",
+  "ui/card_common",
+  "ui/card_rare",
+  "ui/card_epic",
+  "ui/card_back",
+  "ui/btn_primary",
+  "ui/panel",
+  "ui/boss_title"
+ ]
+}

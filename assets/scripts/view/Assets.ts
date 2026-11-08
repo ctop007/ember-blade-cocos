@@ -1,5 +1,5 @@
 /** Promise-based resource loading. Real assets from resources/ (listed in config/available.json), canvas placeholders otherwise. */
-import { resources, JsonAsset, SpriteFrame, ImageAsset, AudioClip, Asset } from 'cc';
+import { resources, JsonAsset, SpriteFrame, ImageAsset, AudioClip, Asset, Texture2D } from 'cc';
 import { drawPlaceholder } from './PlaceholdersFx';
 
 function load<T extends Asset>(path: string, type: any): Promise<T | null> {
@@ -7,6 +7,13 @@ function load<T extends Asset>(path: string, type: any): Promise<T | null> {
 }
 
 interface ManItem { path: string; type: string; size?: number[]; anchor?: number[]; status?: string; displayScale?: number; }
+
+/** ImageAsset from raw RGBA pixels (works on every platform, no canvas needed). */
+export function solidImage(w: number, h: number, rgba: number[]): ImageAsset {
+    const data = new Uint8Array(w * h * 4);
+    for (let i = 0; i < w * h; i++) data.set(rgba, i * 4);
+    return new ImageAsset({ _data: data, _compressed: false, width: w, height: h, format: Texture2D.PixelFormat.RGBA8888 } as any);
+}
 
 export class Assets {
     static cfg: any;
@@ -25,8 +32,12 @@ export class Assets {
         if (man) for (const it of (man.json as any).assets) this.manifest[it.path.replace(/\.png$/, '')] = it;
         const av = await load<JsonAsset>('config/available', JsonAsset);
         if (av) this.avail = av.json as any;
+        // pre-baked placeholder PNGs (tools/bake-placeholders.mjs) for art that isn't delivered yet; native has no full Canvas 2D
+        const pb = await load<JsonAsset>('config/placeholders', JsonAsset);
+        const realSet: { [k: string]: boolean } = {}; for (const k of this.avail.images || []) realSet[k] = true;
+        const baked = pb ? ((pb.json as any).keys as string[]).filter(k => !realSet[k]) : [];
         const imgs = (this.avail.images || []).concat(['ui/qr/qr-group', 'ui/qr/qr-author']), auds = this.avail.audio || [];
-        const total = imgs.length + auds.length + 1;
+        const total = imgs.length + baked.length + auds.length + 1;
         let done = 0;
         const tick = (label: string) => { done++; onProgress(0.05 + 0.9 * done / total, label); };
         // load in small parallel batches
@@ -34,6 +45,11 @@ export class Assets {
         for (const k of imgs) jobs.push(async () => {
             const f = await load<SpriteFrame>(k + '/spriteFrame', SpriteFrame);
             if (f) { this.frames[k] = f; this.real[k] = true; }
+            tick('加载美术');
+        });
+        for (const k of baked) jobs.push(async () => {
+            const f = await load<SpriteFrame>('placeholders/' + k + '/spriteFrame', SpriteFrame);
+            if (f) this.frames[k] = f;
             tick('加载美术');
         });
         // ogg first where the platform can decode it (Safari/iOS can't reliably), mp3 as fallback
@@ -82,8 +98,9 @@ export class Assets {
         // keep placeholder textures modest
         const s = Math.min(1, 1024 / Math.max(w, h));
         const cw = Math.max(4, Math.round(w * s)), ch = Math.max(4, Math.round(h * s));
-        const canvas = drawPlaceholder(key, cw, ch);
-        const img = new ImageAsset(canvas as any);
+        let img: ImageAsset;
+        try { img = new ImageAsset(drawPlaceholder(key, cw, ch) as any); }
+        catch (e) { img = solidImage(4, 4, [200, 200, 200, 160]); } // e.g. native: partial Canvas 2D
         f = SpriteFrame.createWithImage(img);
         f.packable = false;
         (f as any)._placeholderScale = 1 / s;

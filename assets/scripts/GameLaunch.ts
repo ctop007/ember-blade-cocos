@@ -1,6 +1,7 @@
 import { _decorator, Component, Node, view, ResolutionPolicy, game, Game, director, UITransform } from 'cc';
 import { World } from './core/world';
 import { Assets } from './view/Assets';
+import { drawPlaceholder } from './view/PlaceholdersFx';
 import { Sfx } from './view/Sfx';
 import { node, size, opacity, hex, label } from './view/UiKit';
 import { BattleView } from './view/BattleView';
@@ -215,6 +216,12 @@ export class GameLaunch extends Component {
                 };
             },
             events() { return self.evCount; },
+            // render a canvas placeholder at manifest size (capped 1024) as a PNG data URL, for tools/bake-placeholders.mjs
+            bakePlaceholder(key: string) {
+                const [w, h] = Assets.size(key); const s = Math.min(1, 1024 / Math.max(w, h));
+                return drawPlaceholder(key, Math.max(4, Math.round(w * s)), Math.max(4, Math.round(h * s))).toDataURL('image/png');
+            },
+            pendingImages() { return Object.keys(Assets.manifest).filter(k => Assets.manifest[k].type === 'image' && !Assets.isReal(k)); },
             audio() { const fmt: any = {}; for (const k in Assets.clipFmt) fmt[Assets.clipFmt[k]] = (fmt[Assets.clipFmt[k]] || 0) + 1; return { sfx: Sfx.stats, formats: fmt, bgm: !!(Sfx.bgm && Sfx.bgm.playing) }; },
             cast(name: string) { return self.world ? self.world.forceCast(name) : false; },
             spawn(type: string, n = 1) { const w = self.world; if (!w) return 0; for (let i = 0; i < n; i++) w.spawnEdge(type as any); return n; },

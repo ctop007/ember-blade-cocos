@@ -415,7 +415,7 @@ export class SkillFx {
     private ultStart(e: any, w: World) {
         const v = this.v;
         v.setDim(this.v.cfg.skills.ultimate.dimAlpha || 0.6);
-        Sfx.play('ult_start'); this.later(0.15, () => Sfx.play('ult_voice', 1));
+        Sfx.play('ult_start'); // no character voice lines (lead requirement)
         if (this.onUltCutin) this.onUltCutin(true, e.name);
         this.later(e.cutin, () => { if (this.onUltCutin) this.onUltCutin(false, e.name); });
         // hero rises in glow

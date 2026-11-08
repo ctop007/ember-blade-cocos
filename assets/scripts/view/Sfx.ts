@@ -21,7 +21,6 @@ const R: { [k: string]: Recipe } = {
     skill2_charge: [{ kind: 'tone', f0: 200, f1: 900, dur: 0.4, vol: 0.18, type: 'sawtooth' }, { kind: 'tone', f0: 400, f1: 1800, dur: 0.4, vol: 0.08, type: 'sine' }],
     skill2_strike: [{ kind: 'noise', f0: 6000, f1: 800, dur: 0.12, vol: 0.5 }, { kind: 'boom', f0: 140, f1: 30, dur: 0.6, vol: 0.6 }],
     skill3_throw: [{ kind: 'noise', f0: 800, f1: 4000, dur: 0.25, vol: 0.3, q: 2.5 }, { kind: 'noise', f0: 400, f1: 300, dur: 0.6, vol: 0.12, delay: 0.1 }],
-    ult_voice: [{ kind: 'tone', f0: 520, f1: 880, dur: 0.35, vol: 0.18, type: 'triangle' }, { kind: 'tone', f0: 660, f1: 1100, dur: 0.4, vol: 0.12, type: 'sine', delay: 0.2 }],
     ult_start: [{ kind: 'tone', f0: 80, f1: 220, dur: 0.8, vol: 0.3, type: 'sawtooth' }, { kind: 'noise', f0: 200, f1: 2000, dur: 0.8, vol: 0.15 }],
     ult_impact: [{ kind: 'boom', f0: 150, f1: 25, dur: 0.45, vol: 0.55 }, { kind: 'noise', f0: 2500, f1: 300, dur: 0.3, vol: 0.3 }],
     fireball_land: [{ kind: 'boom', f0: 160, f1: 50, dur: 0.25, vol: 0.35 }, { kind: 'noise', f0: 1500, f1: 400, dur: 0.25, vol: 0.18 }],

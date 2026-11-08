@@ -1,6 +1,6 @@
 /** Node factories: sprites, labels, graphics, buttons. All UI is code-built. */
-import { Node, Sprite, Label, UITransform, Color, Graphics, Layers, Material, builtinResMgr, gfx, SpriteFrame, ImageAsset, UIOpacity, HorizontalTextAlignment, VerticalTextAlignment, Vec3 } from 'cc';
-import { Assets } from './Assets';
+import { Node, Sprite, Label, UITransform, Color, Graphics, Layers, Material, builtinResMgr, gfx, SpriteFrame, UIOpacity, HorizontalTextAlignment, VerticalTextAlignment, Vec3 } from 'cc';
+import { Assets, solidImage } from './Assets';
 
 export const UI_LAYER = Layers.Enum.UI_2D;
 
@@ -100,9 +100,7 @@ export function opacity(n: Node, a?: number): UIOpacity {
 let _white: SpriteFrame | null = null;
 export function rect(parent: Node, w: number, h: number, c: Color, name = 'rect'): Sprite {
     if (!_white) {
-        const cv = document.createElement('canvas'); cv.width = cv.height = 4;
-        const cx = cv.getContext('2d')!; cx.fillStyle = '#fff'; cx.fillRect(0, 0, 4, 4);
-        _white = SpriteFrame.createWithImage(new ImageAsset(cv as any)); _white.packable = false;
+        _white = SpriteFrame.createWithImage(solidImage(4, 4, [255, 255, 255, 255])); _white.packable = false;
     }
     const n = node(name, parent);
     const sp = n.addComponent(Sprite);

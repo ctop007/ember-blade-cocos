@@ -24,8 +24,11 @@ function copy(rel, to = rel) {
     fs.copyFileSync(a, b); copied++;
     return true;
 }
+// No character voice lines in the game (lead requirement): any voice asset is excluded even if the manifest marks it ready.
+const VOICE = /(^|\/)[^/]*voice[^/]*$/i;
 for (const it of m.assets) {
     if (it.status !== 'ready') { skipped++; continue; }
+    if (it.type === 'audio' && VOICE.test(it.path)) { skipped++; continue; }
     if (it.type === 'image') {
         if (copy(it.path)) avail.images.push(it.path.replace(/\.png$/, ''));
     } else if (it.type === 'audio') {
@@ -39,13 +42,10 @@ for (const it of m.assets) {
 }
 const cfgSrc = path.join(shared, 'config/game.json');
 if (fs.existsSync(cfgSrc)) {
-    // shared config + local overrides (tools/config-overrides.json, deep-merged; keep small and report upstream)
-    const cfg = JSON.parse(fs.readFileSync(cfgSrc, 'utf8'));
-    const ovPath = new URL('./config-overrides.json', import.meta.url);
-    const merge = (a, b) => { for (const k in b) { if (b[k] && typeof b[k] === 'object' && !Array.isArray(b[k])) merge(a[k] = a[k] || {}, b[k]); else a[k] = b[k]; } };
-    if (fs.existsSync(ovPath)) { const ov = JSON.parse(fs.readFileSync(ovPath, 'utf8')); merge(cfg, ov); console.log('config overrides', JSON.stringify(ov)); }
+    const cfg = JSON.parse(fs.readFileSync(cfgSrc, 'utf8')); // shared config as-is (no local overrides)
     fs.writeFileSync(path.join(dst, 'config/game.json'), JSON.stringify(cfg, null, 1));
 }
-fs.copyFileSync(path.join(src, 'manifest.json'), path.join(dst, 'config/manifest.json'));
+// local manifest copy without voice entries, so no voice reference reaches Web/APK builds
+fs.writeFileSync(path.join(dst, 'config/manifest.json'), JSON.stringify({ ...m, assets: m.assets.filter(it => !(it.type === 'audio' && VOICE.test(it.path))) }, null, 1));
 fs.writeFileSync(path.join(dst, 'config/available.json'), JSON.stringify(avail, null, 1));
 console.log(`ready images=${avail.images.length} audio=${avail.audio.length} copied=${copied} pending=${skipped}`);

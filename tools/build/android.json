@@ -2,7 +2,7 @@
   "platform": "android",
   "name": "烬刃·Cocos版",
   "outputName": "android",
-  "debug": true,
+  "debug": false,
   "md5Cache": false,
   "packages": {
     "android": {

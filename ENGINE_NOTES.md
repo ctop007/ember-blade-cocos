@@ -12,7 +12,7 @@
 
 | 项目 | 数值 |
 |---|---|
-| Web 产物大小 | `build/web-mobile` 共 10 MB。其中 assets 6.9 MB（主要是角色、背景、特效的 PNG），引擎和脚本约 3 MB |
+| Web 产物大小 | `build/web-mobile` 共 18 MB（10 MB 时尚无首页背景、Logo、大招立绘/横幅；新增约 4 MB，另有 0.65 MB 预烘焙占位图），其中 resources 15 MB，引擎和脚本约 3 MB |
 | 首屏传输 | 157 个请求，约 9.2 MB（所有 ready 资源都在启动时预加载） |
 | 首屏加载时间 | 从 goto 到首页可点击：2.2–2.5 s（本地，未节流） |
 | 普通战斗 FPS（1×） | 60（p95 帧间隔 16.8 ms） |
@@ -33,7 +33,8 @@
 - **补间**：UI 动画（抽卡飞入/翻牌、横幅、Boss 标题、结算面板）用 `tween()`；战斗内的特效全部在 `Fx.update(dt)` 里手动推进，这样能统一受顿帧和暂停控制。
 - **y 排序**：核心层用 x / y（纵深）/ z（高度）三个坐标，视图层 y = 360 − y + z。每帧按脚底 y 对实体节点排序，用的是 `setSiblingIndex`，只在顺序变化时才调用。
 - **顿帧和震屏**：顿帧放在核心层（`world.hitstop`，冻结 `step()`），保证逻辑和表现一致。震屏只在视图层做，幅度 ≤ 4px，0.1 s 内衰减。
-- **音频**：`AudioSource.playOneShot` 加同名 45 ms 节流。音频还没交付，目前全部用 WebAudio 合成音兜底，等 mp3 就绪后自动切换。只加载 mp3：ogg 和 mp3 同名，同时放进 resources 会冲突。
+- **音频**：`AudioSource.playOneShot` 加同名 45 ms 节流。ogg 放 `resources/ogg/`、mp3 放 `resources/`（同名同目录会冲突），能解码 ogg 时优先 ogg，否则 mp3；缺失时 WebAudio 合成音兜底。实测 28 个音频全部走真实 ogg。
+- **无人物语音**：按负责人要求，游戏里不放任何人物台词配音（包括大招 `ult_voice`），也不使用 TTS 替代。`sync-assets.mjs` 会过滤掉所有名字含 voice 的音频，本地 manifest 副本里也删掉这些条目。播放调用和合成兜底已经删除，Web 和 APK 产物里都查不到 voice 文件或引用。大招只保留技能名文字、立绘、`ult_start` 起手音和 `ult_impact` 爆炸音。
 - **Web 导出的坑**：
   1. **`Graphics` 不受 `UIOpacity` 影响**。顶点色是绘制时烘焙进去的，导致全屏遮罩的渐隐失效：抽卡遮罩变成纯黑，大招压暗直接黑屏。现在改成在白色贴图的 Sprite 上染色。
   2. 用 canvas 画的占位图如果在 manifest 加载之前就生成并缓存，会按 128×128 的兜底尺寸画，显示时被放大裁切（首页 logo 就是这样坏的）。
@@ -49,10 +50,20 @@
 
 ## 未完成项和已知问题
 
-- 音频（BGM 和音效）、大招立绘、大招横幅、UI 美术还没交付。目前分别用合成音和 canvas 占位，资源就绪后运行 `node tools/sync-assets.mjs` 再重新构建即可替换。
-- 本地对共享配置做了两处覆盖（`tools/config-overrides.json`），已同步给负责人：
-  - `world.groundTop` 改为 440，按新背景的可走区域。
-  - `boss.moves.sweep.range` 改为 200，原值 220。Boss 横扫帧里刀尖距中心约 188px（640 画布 × 0.6），原值比美术长了约 30px。
+- 22 张 UI 美术（摇杆、按钮、图标、头像、血条、卡牌、面板、Boss 标题）还没交付，目前用占位图。资源就绪后的更新流程：运行 `node tools/sync-assets.mjs`，构建 Web，运行 `node tools/bake-placeholders.mjs`（会删掉已到货的占位图），再构建一次。
+- 共享配置直接使用，不再有本地覆盖。groundTop=440 和 sweep.range=200 已经合进共享的 game.json。
 - 所有资源在启动时一次性预加载，首屏约 9 MB。如果要上线，应该改成按波次分包，PNG 转 webp 或压缩纹理。
 
-<!-- APK -->
+## APK 打包体验
+
+- **产物**：`_deliverables/ember-cocos.apk`，38.3 MB（debug，只含 arm64-v8a）。其中 `libcocos.so` 解压后 73 MB，是体积的大头。
+- **aapt2 核对**：package `com.yuen7.ember.cocos`，versionCode 1，label `烬刃·Cocos版`，minSdk 21，targetSdk 34，compileSdk 36，native-code 只有 `arm64-v8a`。主 Activity 的 `screenOrientation=6`（sensorLandscape），声明了 `android.hardware.screen.landscape`，带 roundIcon。apksigner 显示签名证书是 `CN=Android Debug`（`~/.android/debug.keystore`）。
+- **配置**：`tools/build/android.json` 通过 `--build "configPath=..."` 传入。字段包括 packageName、横屏的 orientation（landscapeLeft/Right）、apiLevel 34、appABIs `["arm64-v8a"]`、keystore 四项、sdkPath、ndkPath（27.1.12297006）、javaHome（JBR 17）、渲染后端 gles3、`debug: false`（关掉左下角的统计面板）。
+- **图标**：放在 `native/engine/android/res`，这个目录要提交，构建时会拷进工程。各 density 的 `ic_launcher`、`ic_launcher_round`、`ic_launcher_foreground`（按 108dp 画布内缩到 84dp）都由 `_shared/assets/ui/app-icon.png` 生成，另有 `mipmap-anydpi-v26` 的 adaptive XML，背景色 #2a1630。AndroidManifest 里手动补了 `android:roundIcon`。
+- **坑**：
+  1. CLI 的 android 构建只生成 `build/android/proj`，不出 APK，退出码同样是 36。要再进 proj 运行 `./gradlew assembleDebug`，`tools/build-android.sh` 把这两步串起来了。第一次构建会下载 gradle 8.11.1，再编译 C++，大约 10 分钟。之后增量构建不到 1 分钟。
+  2. **原生端没有完整的 Canvas 2D**：`getContext('2d')` 返回 null。第一版 APK 在首页画占位图时抛出 `addColorStop of null`，结果黑屏，只有 1 个 draw call。修法：白色贴图改用原始 RGBA 像素生成 `ImageAsset`。还没到货的图先在 Web 上用 `tools/bake-placeholders.mjs` 烘焙成 PNG，放进 `resources/placeholders/`。运行时如果还缺图，就退回一张纯色贴图。
+  3. 用 `window.setTimeout` 移除的输入锁和抽卡回调，统一改成 `tween().delay().call()`，由引擎调度，Web 和原生端行为一致。
+  4. adb 冒烟时点不到按钮，其实是我把屏幕坐标算错了，触摸本身正常。加了一行 `input.on(TOUCH_START)` 日志才确认触摸已经进到引擎。另外 zsh 不会把 `$D` 拆成多个参数，`adb -s $D` 会失败，要用函数包一层。
+- **真机冒烟**：Samsung SM-G9980（Android 15，3200×1440），`adb install -r` 成功。启动后是横屏（ROTATION_90），首页 60 fps，进战斗后摇杆、普攻连击和炎月斩都正常，失败结算和“再来一局”也正常，logcat 里没有 JS 报错。只操作了本包，没动其他 App。
+- **无人物语音**：APK 解包后，没有任何文件名含 voice，也搜不到 `ult_voice` 或台词文本。包内共 56 个音频文件，即 28 个音效/BGM 各有 ogg 和 mp3 两份。
