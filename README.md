@@ -1,6 +1,6 @@
 # 烬刃 · Cocos Creator 3.8.8 版
 
-横版 2.5D 动作试玩（手机横屏）。代码优先：一个场景 `assets/Main.scene`、一个入口组件 `GameLaunch`，所有 UI 和实体都在 TS 里生成。
+横版 2.5D 动作试玩（手机横屏）。代码优先：一个场景 `assets/Main.scene`、一个入口组件 `GameLaunch`，所有 UI 和实体都在 TS 里生成。主角使用 `_shared/rigs/hero` 的骨骼动画（`?rig=0` 可切回旧单图对比）。
 
 ## 本地运行 Web 版（端口 8942）
 
@@ -24,7 +24,8 @@ python3 -m http.server 8942 -d build/web-mobile
 ## 目录
 
 - `assets/scripts/core/`：纯逻辑（不 import cc），包括世界、主角、敌人、投射物、抽卡。可以用 `tools/sim.ts` 无头跑。
-- `assets/scripts/view/`：表现层，包括战斗视图、特效、技能特效、HUD、触摸输入、各个界面、占位图。
+- `assets/scripts/animation/`：引擎无关的骨骼播放器（`RigPlayer`）、刀光条带（`TrailStrip`）和主角动状态适配（`HeroAnimation`）。
+- `assets/scripts/view/`：表现层，包括战斗视图、骨骼渲染（`SkelView`）、特效、技能特效、HUD、触摸输入、各个界面、占位图。
 - `assets/resources/`：从 `_shared/` 同步来的配置和资源，用 `node tools/sync-assets.mjs` 同步。
 - `tools/`：Playwright 测试和工具。`play.mjs` 用真实多点触控打完整局，`perf.mjs` 测性能，`smoke.mjs` 是冒烟测试，`sim.ts` 是无头逻辑测试。
 

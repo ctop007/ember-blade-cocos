@@ -12,7 +12,7 @@
 
 | 项目 | 数值 |
 |---|---|
-| Web 产物大小 | `build/web-mobile` 共 18 MB（10 MB 时尚无首页背景、Logo、大招立绘/横幅；新增约 4 MB，另有 0.65 MB 预烘焙占位图），其中 resources 15 MB，引擎和脚本约 3 MB |
+| Web 产物大小 | `build/web-mobile` 共约 22 MB（加入骨骼部件与重制 HUD 后）（10 MB 时尚无首页背景、Logo、大招立绘/横幅；新增约 4 MB，另有 0.65 MB 预烘焙占位图），其中 resources 15 MB，引擎和脚本约 3 MB |
 | 首屏传输 | 157 个请求，约 9.2 MB（所有 ready 资源都在启动时预加载） |
 | 首屏加载时间 | 从 goto 到首页可点击：2.2–2.5 s（本地，未节流） |
 | 普通战斗 FPS（1×） | 60（p95 帧间隔 16.8 ms） |
@@ -25,6 +25,27 @@
 - 视口 844×390 和 667×375 都 **ALL PASS**。覆盖的操作：摇杆、三段普攻、长按蓄力突刺、按住摇杆的同时点闪避、跳跃接下劈、三个技能、大招、三次抽卡（发牌动画期间点击被正确忽略）、Boss 标题、结算、再来一局。
 - 机器人不会躲技能，正常打一般死在 Boss 手上，用时 61–79 s。`WIN=1` 时开无敌，走通胜利流程，用时约 96 s。
 - 核心逻辑的无头模拟 `tools/sim.ts` 跑了 3 个种子，2 胜 1 负，单局 65–85 s。
+
+## 骨骼动画实现对比
+
+- **数据**：直接播放 `_shared/rigs/hero/` 的 `rig.json` + `anims.json`，按 ANIMATION.md 4.1 实现。关键帧是相对 setup pose 的增量，每个属性单独插值，ease 写在目标帧上；`keyMode:absolute` 也支持。`phases` 按玩法时长拉伸：attack 的 active 对齐 `hitAt`、recovery 对齐 `duration`，其他状态对齐 core 的状态时长。边界会收敛到同一实例，避免 active==recovery 时出现空段。
+- **渲染**：纯 TS 的 `RigPlayer` 计算骨骼世界矩阵，Cocos 里每个 slot 一个 Sprite，按 z 稳定排序，pivot 转成锚点。部件换图和换层走 slot 轨道，alpha 走 `UIOpacity`。y 轴和旋转方向在这里取反一次。
+- **弹簧骨**：发髻 2 节、左右衣摆、枪缨各一组。按世界角度做弹簧，受父骨转动和重力的切向分量驱动，固定 1/120s 子步防止刚性弹簧发散。所以跑动、急停和转身时，发髻和衣摆会甩出去再回弹。
+- **手感层**（视图侧，core 不受影响）：
+  - 状态切换时快照当前姿势，0.06–0.12s 内交叉淡入，不再硬切。
+  - 输入缓冲 0.2s（`attack.chainBuffer`）：闪避和攻击按下后，在不可行动状态里也会记住，条件满足立即执行。
+  - 后摇取消：普攻命中 0.06s 后就能被下一段普攻或闪避取消，不必等完整 duration。
+  - 前冲和蓄力突进改成位移曲线积分，起点快、末段慢，总距离和帧率无关。
+  - 刀光改成跟随 `spearTip` 插槽轨迹的条带网格，由动画里的 `trail_on/trail_off` 事件开关。
+  - 顿帧时 `HeroAnimation` 不推进，姿势、弹簧和拖尾都停住；`h.st` 本身不前进，所以不会补帧跳变。
+- **对比开关**：默认骨骼。`?rig=0` 用旧单图，`?rig=1` 用骨骼，运行时也可以用桥接 `rigMode(false/true)` 切换。
+- **性能**（20 只敌人 + 持续普攻，每帧主线程耗时，两版同一构建）：
+  | 节流 | 旧单图 | 骨骼 |
+  |---|---:|---:|
+  | 1× | 1.0–1.4 ms | 1.3 ms |
+  | 4× | 4.5–4.6 ms | 4.6–4.8 ms |
+  | 6× | 5.2–6.8 ms | 5.1–5.7 ms |
+  FPS 两边都是 60。骨骼新增约 0.1–0.3 ms/帧，没有明显下降。
 
 ## 实现差异
 
@@ -50,14 +71,16 @@
 
 ## 未完成项和已知问题
 
-- 22 张 UI 美术（摇杆、按钮、图标、头像、血条、卡牌、面板、Boss 标题）还没交付，目前用占位图。资源就绪后的更新流程：运行 `node tools/sync-assets.mjs`，构建 Web，运行 `node tools/bake-placeholders.mjs`（会删掉已到货的占位图），再构建一次。
+- UI 与特效素材已全部到货，预烘焙占位图机制保留作为缺图兜底（`tools/bake-placeholders.mjs`）。
+- 战斗 HUD 按 `_shared/UI_LAYOUT.md` 以 CSS 像素实现：主攻 34/36、闪跳 21/23、技能 22/23、大招 25/26（视觉/热区半径），触区互不交叠；同一按钮的第二根手指会被忽略。右上暂停旁常显「乃秀游戏 Demo」。
+- 敌人（小鬼、灯笼怪、重甲、Boss）仍是单图姿势，等 t3k 的 rig 到货后按同一播放器接入。
 - 共享配置直接使用，不再有本地覆盖。groundTop=440 和 sweep.range=200 已经合进共享的 game.json。
 - 所有资源在启动时一次性预加载，首屏约 9 MB。如果要上线，应该改成按波次分包，PNG 转 webp 或压缩纹理。
 
 ## APK 打包体验
 
-- **产物**：`_deliverables/ember-cocos.apk`，38.3 MB（debug，只含 arm64-v8a）。其中 `libcocos.so` 解压后 73 MB，是体积的大头。
-- **aapt2 核对**：package `com.yuen7.ember.cocos`，versionCode 1，label `烬刃·Cocos版`，minSdk 21，targetSdk 34，compileSdk 36，native-code 只有 `arm64-v8a`。主 Activity 的 `screenOrientation=6`（sensorLandscape），声明了 `android.hardware.screen.landscape`，带 roundIcon。apksigner 显示签名证书是 `CN=Android Debug`（`~/.android/debug.keystore`）。
+- **产物**：`_deliverables/ember-cocos.apk`，39.6 MB（versionCode 2，versionName 1.1，debug，只含 arm64-v8a；已包含主角骨骼部件与重制 HUD 全部 125 项正式素材）。其中 `libcocos.so` 解压后 73 MB，是体积的大头。
+- **aapt2 核对**：package `com.yuen7.ember.cocos`，versionCode 2（versionName 1.1），label `烬刃·Cocos版`，minSdk 21，targetSdk 34，compileSdk 36，native-code 只有 `arm64-v8a`。主 Activity 的 `screenOrientation=6`（sensorLandscape），声明了 `android.hardware.screen.landscape`，带 roundIcon。apksigner 显示签名证书是 `CN=Android Debug`（`~/.android/debug.keystore`）。
 - **配置**：`tools/build/android.json` 通过 `--build "configPath=..."` 传入。字段包括 packageName、横屏的 orientation（landscapeLeft/Right）、apiLevel 34、appABIs `["arm64-v8a"]`、keystore 四项、sdkPath、ndkPath（27.1.12297006）、javaHome（JBR 17）、渲染后端 gles3、`debug: false`（关掉左下角的统计面板）。
 - **图标**：放在 `native/engine/android/res`，这个目录要提交，构建时会拷进工程。各 density 的 `ic_launcher`、`ic_launcher_round`、`ic_launcher_foreground`（按 108dp 画布内缩到 84dp）都由 `_shared/assets/ui/app-icon.png` 生成，另有 `mipmap-anydpi-v26` 的 adaptive XML，背景色 #2a1630。AndroidManifest 里手动补了 `android:roundIcon`。
 - **坑**：
