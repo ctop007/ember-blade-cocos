@@ -8,6 +8,7 @@ import { BattleView } from './view/BattleView';
 import { SkillFx } from './view/SkillFx';
 import { Hud } from './view/Hud';
 import { TouchInput } from './view/TouchInput';
+import { RigTestView } from './view/RigTestView';
 import { Screens, onTap } from './view/Screens';
 const { ccclass } = _decorator;
 
@@ -15,6 +16,7 @@ const { ccclass } = _decorator;
 @ccclass('GameLaunch')
 export class GameLaunch extends Component {
     private cfg: any;
+    private rigTest: RigTestView | null = null;
     private world: World | null = null;
     private bv: BattleView | null = null;
     private sfx: SkillFx | null = null;
@@ -137,6 +139,7 @@ export class GameLaunch extends Component {
 
     // ---------------- loop ----------------
     update(dtReal: number) {
+        if (this.rigTest) this.rigTest.update(Math.min(.05, dtReal));
         this.fpsAcc += dtReal; this.fpsN++;
         if (this.fpsAcc >= 0.5) { this.fps = this.fpsN / this.fpsAcc; this.fpsAcc = 0; this.fpsN = 0; }
         if (!this.inBattle || !this.world || !this.bv || !this.hud || !this.inp) return;
@@ -203,6 +206,12 @@ export class GameLaunch extends Component {
             return { x: r.left + (x + vs.width / 2) / vs.width * r.width, y: r.top + (1 - (y + vs.height / 2) / vs.height) * r.height };
         };
         win.__AI_BRIDGE__ = {
+            rigTest(on = true) {
+                if (self.rigTest) { self.rigTest.root.destroy(); self.rigTest = null; }
+                if (on) self.rigTest = new RigTestView(self.uiRoot);
+            },
+            rigFreeze(on: boolean) { if (self.rigTest) self.rigTest.frozen = on; },
+            rigState() { const r = self.rigTest; return r ? { name: r.player.name, time: r.player.time, events: r.eventCounts, tip: r.player.socket('spearTip'), triangles: r.trail.indices.length / 3 } : null; },
             state() {
                 const w = self.world;
                 if (!w) return { phase: 'home', fps: Math.round(self.fps) };

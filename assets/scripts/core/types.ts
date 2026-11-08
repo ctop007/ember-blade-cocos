@@ -41,6 +41,7 @@ export interface Hero {
     state: HeroState; st: number;
     atkStep: number; atkHitDone: boolean; comboWindowT: number; chainQueued: boolean; holdT: number;
     lungeLeft: number;
+    attackBuffer: number; dodgeBuffer: number;
     dodgeCd: number; dodgeDx: number; dodgeDy: number; dodgeFlameAcc: number;
     invuln: number; flashT: number; kx: number;
     castSkill: SkillName | null; castDur: number; castStep: number;
