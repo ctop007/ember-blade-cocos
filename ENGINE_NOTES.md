@@ -39,13 +39,29 @@
   - 刀光改成跟随武器/利爪插槽（主角 `spearTip`、小鬼 `clawTip`、重甲 `chargeFront`、Boss `swordTip`）轨迹的条带网格，由动画里的 `trail_on/trail_off` 事件开关。
   - 顿帧时动画播放器不推进，姿势、弹簧和拖尾都停住；状态时间本身不前进，所以不会补帧跳变。
 - **对比开关**：默认全角色骨骼。`?rig=0` 用旧单图，`?rig=1` 用骨骼，运行时也可以用桥接 `rigMode(false/true)` 一键切换主角与场上所有敌人。
-- **性能**（20 只敌人 + 主角持续普攻，每帧主线程耗时，同一构建切换 `rig=0` / `rig=1`）：
-  | 节流 | 旧单图（全角色） | 仅主角骨骼 | 全 5 角色骨骼（主角 + 20 敌人） |
-  |---|---:|---:|---:|
-  | 1× | 1.30 ms（script 1.09 ms） | 1.30 ms | 2.47 ms（script 2.13 ms） |
-  | 4× | 4.82 ms（script 3.97 ms） | 4.68 ms | 7.72 ms（script 6.80 ms） |
-  | 6× | 5.92 ms（script 4.97 ms） | 5.40 ms | 10.15 ms（script 8.98 ms） |
-  FPS 在 1×/4× 下均为 60.0，6× 节流下为 59.7。21 个骨骼角色同屏（约 180 个部件 Sprite + 弹簧子步 + 刀光网格）在 6× CPU 节流下仍远低于 16.7 ms 帧预算。
+- **性能（与 Godot 统一口径，脚本 `tools/bench_unified.mjs` 由 `demo_godot/tools/bench_unified.mjs` 复制并改用同一组桥接口）**：
+  - **场景**：844×390、DPR 2；20 只存活敌人（14 小鬼 + 4 灯笼怪 + 2 重甲，少于 20 时每 800ms 补小鬼，死亡即补）；`god(true)`；**真实触摸按住主攻键**（touchStart 不放）；CDP `Emulation.setCPUThrottlingRate` 1×/4×/6×，每档 10 秒。两档 `?rig=0`（旧单图）/`?rig=1`（骨骼）各跑一遍。
+  - **busy**：在应用自己的 `requestAnimationFrame` 回调内，用 `performance.now()` 包住回调测到的**主线程忙时**（脚本逻辑 + 发往渲染器的提交；不含 rAF 之外的浏览器合成/光栅）。表头就是这一段时间。
+  - **gap**：相邻两次 rAF 时间戳之差，即**实际帧间隔**。p50/p95 均为 10 秒窗口内约 600 帧的统计。
+  - 以前写的 1.30 ms 等数字来自 CDP `Performance.getMetrics` 的 TaskDuration/ScriptDuration（统计整个主线程任务，口径更宽），**不能**与 Godot 的 busy 横比，已废弃。
+
+  | 引擎 / 渲染 | 档位 | busy p50 (ms) | busy p95 (ms) | gap p50 (ms) | gap p95 (ms) | fps p50 | 存活敌人 |
+  |---|---|---:|---:|---:|---:|---:|---:|
+  | Cocos · 旧单图 `rig=0` | 1× | **0.6** | 0.9 | 16.7 | 16.7 | 59.9 | 20 |
+  | Cocos · 旧单图 `rig=0` | 4× | **2.5** | 3.6 | 16.7 | 16.8 | 59.9 | 20 |
+  | Cocos · 旧单图 `rig=0` | 6× | **4.2** | 6.0 | 16.7 | 16.7 | 59.9 | 20 |
+  | Cocos · 骨骼 `rig=1`（主角+4 类敌人） | 1× | **1.3** | 1.7 | 16.7 | 16.8 | 59.9 | 20 |
+  | Cocos · 骨骼 `rig=1` | 4× | **4.1** | 5.3 | 16.7 | 16.7 | 59.9 | 20 |
+  | Cocos · 骨骼 `rig=1` | 6× | **6.6** | 8.6 | 16.7 | 16.7 | 59.9 | 20 |
+  | Godot · 单图 `sprite` | 1× | 2.1 | 3.1 | 16.7 | 16.7 | 59.9 | 20 |
+  | Godot · 单图 `sprite` | 4× | 6.2 | 8.6 | 16.7 | 16.7 | 59.9 | 20 |
+  | Godot · 单图 `sprite` | 6× | 9.3 | 13.4 | 16.7 | 16.8 | 59.9 | 20 |
+  | Godot · 骨骼 `hero` | 1× | 6.0 | 7.1 | 16.7 | 16.8 | 59.9 | 20 |
+  | Godot · 骨骼 `hero` | 4× | 23.5 | 28.0 | 33.2 | 33.4 | 30.1 | 20 |
+  | Godot · 骨骼 `hero` | 6× | 40.2 | 50.0 | 50.0 | 50.1 | 20.0 | 20 |
+
+  - 原始数据：Cocos `tools/shots/bench-cocos-sprite.json`、`tools/shots/bench-cocos-skel.json`；Godot `demo_godot/tools/shots/bench-unified-sprite.json`、`bench-unified-hero.json`。两边的“骨骼”档不同：Cocos 的 `rig=1` 是主角与全部 4 类敌人同时骨骼化，Godot 的 `hero` 档按其脚本定义。
+  - 对照结论：在相同场景与相同测量点下，Cocos 骨骼档的 busy 只比自家单图档高 0.7 / 1.6 / 2.4 ms（1×/4×/6×，p50），三档 gap 都保持 16.7 ms（60 fps）；Godot 骨骼档 1× 已是 6.0 ms，4×/6× 分别掉到约 30/20 fps。纯渲染实现差异（Cocos 每个部件一个 Sprite + 纯 TS 矩阵合成；Godot 的骨骼运行时开销更重）。
 
 ## 实现差异
 

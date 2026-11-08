@@ -35,4 +35,8 @@ python3 -m http.server 8942 -d build/web-mobile
 cd tools && npm i
 node play.mjs 844 390          # 真实触摸打完整局（WIN=1 时开无敌，用来走通胜利流程）
 node perf.mjs 844 390          # 首屏、FPS（含 4× CPU 节流下大招 + 20 敌）
+node bench_unified.mjs --url=http://127.0.0.1:8942/index.html --rig=0 --out=tools/shots/bench-cocos-sprite.json
+node bench_unified.mjs --url=http://127.0.0.1:8942/index.html --rig=1 --out=tools/shots/bench-cocos-skel.json
+# 统一口径性能基准（与 demo_godot/tools/bench_unified.mjs 相同）：844×390、20 敌人、按住普攻、god、
+# 每档 CPU 节流 10 秒，同时记录 rAF 回调内 busy 与帧间隔 gap 的 p50/p95
 ```

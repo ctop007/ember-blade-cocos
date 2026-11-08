@@ -209,6 +209,28 @@ export class GameLaunch extends Component {
             return { x: r.left + (x + vs.width / 2) / vs.width * r.width, y: r.top + (1 - (y + vs.height / 2) / vs.height) * r.height };
         };
         win.__AI_BRIDGE__ = {
+            // ---- minimal surface shared with the Godot benchmark (tools/bench_unified.mjs) ----
+            start() { if (!self.inBattle) self.startBattle(); return true; },
+            full() {
+                const w = self.world, btn = self.hud ? self.hud.button('attack') : null;
+                return {
+                    screen: self.inBattle ? 'battle' : 'home',
+                    game: w ? {
+                        enemies: w.enemies.filter(e => e.state !== 'dead').map(e => ({ id: e.id, type: e.type, hp: Math.round(e.hp), x: Math.round(e.x), y: Math.round(e.y), state: e.state })),
+                        hero: { x: Math.round(w.hero.x), y: Math.round(w.hero.y), hp: Math.round(w.hero.hp), state: w.hero.state },
+                        phase: w.phase, wave: w.wave + 1,
+                    } : { enemies: [] },
+                    layout: { attack: btn ? [btn.position.x, btn.position.y] : null },
+                };
+            },
+            clearEnemies() {
+                const w = self.world; if (!w) return 0;
+                const n = w.enemies.length + w.spawnQueue.length;
+                for (const e of w.enemies) e.state = 'dead';
+                w.enemies.length = 0; w.spawnQueue.length = 0; w.projs.length = 0; w.zones.length = 0;
+                return n;
+            },
+            toCss(x: number, y: number) { const p = canvasPt(x, y); return [p.x, p.y]; },
             rigTest(on = true) {
                 if (self.rigTest) { self.rigTest.root.destroy(); self.rigTest = null; }
                 if (on) self.rigTest = new RigTestView(self.uiRoot);
@@ -272,6 +294,7 @@ export class GameLaunch extends Component {
             timeScale(x: number) { self.timeScale = x; },
             fillRage() { if (self.world) self.world.hero.rage = self.cfg.player.maxRage; },
             god(on: boolean) { if (self.world) self.world.god = !!on; },
+            freezeWaves(on: boolean) { if (self.world) self.world.debugFreezeWaves = !!on; return !!self.world?.debugFreezeWaves; },
             // helpers for Playwright real-touch tests: client pixel position of UI elements
             buttonPos(id: string) {
                 if (!self.hud) return null;

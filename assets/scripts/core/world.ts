@@ -20,6 +20,8 @@ export class World {
     spawnQueue: EnemyType[] = []; spawnT = 0; spawnSide = 1;
     arenaL = 0; arenaR = 1280; targetR = 1280;
     hitstop = 0; hsFrame = false; timeScale = 1; god = false;
+    /** Perf-harness only (set through the ?debug bridge): keep spawn tiles/transitions from adding enemies. */
+    debugFreezeWaves = false;
     takenCards: string[] = []; draftChoices: CardDef[] = []; draftReturn: string | null = null;
     combo = 0; comboDmg = 0; comboT = 0;
     stats = { damage: 0, kills: 0, maxCombo: 0, hits: 0, time: 0, cards: 0 };
@@ -116,6 +118,7 @@ export class World {
     }
 
     private updatePhase(dt: number) {
+        if (this.debugFreezeWaves) return;
         this.phaseT -= dt;
         const w = this.cfg.waves[this.wave];
         if (this.spawnQueue.length > 0) {
