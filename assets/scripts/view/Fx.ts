@@ -103,14 +103,14 @@ export class Fx {
     }
 
     // ------------- common bursts -------------
-    burst(key: string, x: number, y: number, z: number, n: number, o: { speed: number; color: string; life: number; size: number; g?: number; up?: number; spread?: number; ground?: boolean; additive?: boolean; floor?: boolean; vr?: number; align?: boolean; s1?: number }) {
+    burst(key: string, x: number, y: number, z: number, n: number, o: { speed: number; color: string; life: number; size: number; g?: number; up?: number; spread?: number; ground?: boolean; additive?: boolean; floor?: boolean; vr?: number; align?: boolean; s1?: number; a0?: number }) {
         for (let i = 0; i < n; i++) {
             const a = Math.random() * Math.PI * 2;
             const sp = o.speed * (0.4 + Math.random() * 0.8);
             this.spawn({
                 key, x, y: y + (Math.random() - 0.5) * (o.spread ?? 0), z, vx: Math.cos(a) * sp, vz: Math.sin(a) * sp * 0.8 + (o.up ?? 0),
                 g: o.g ?? 0, drag: 0.04, life: o.life * (0.6 + Math.random() * 0.6), s0: o.size * (0.7 + Math.random() * 0.6) / 64, s1: o.s1 ?? 0,
-                color: o.color, ground: o.ground, additive: o.additive, floor: o.floor, rot: Math.random() * 360, vr: o.vr ?? 0, alignVel: o.align,
+                color: o.color, ground: o.ground, additive: o.additive, floor: o.floor, rot: Math.random() * 360, vr: o.vr ?? 0, alignVel: o.align, a0: o.a0,
             });
         }
     }

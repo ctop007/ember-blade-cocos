@@ -1,0 +1,30 @@
+{
+  "platform": "android",
+  "name": "烬刃·Cocos版",
+  "outputName": "android",
+  "debug": true,
+  "md5Cache": false,
+  "packages": {
+    "android": {
+      "packageName": "com.yuen7.ember.cocos",
+      "orientation": { "landscapeRight": true, "landscapeLeft": true, "portrait": false, "upsideDown": false },
+      "apiLevel": 34,
+      "appABIs": ["arm64-v8a"],
+      "useDebugKeystore": false,
+      "keystorePath": "/Users/ctop/.android/debug.keystore",
+      "keystorePassword": "android",
+      "keystoreAlias": "androiddebugkey",
+      "keystoreAliasPassword": "android",
+      "sdkPath": "/Users/ctop/Library/Android/sdk",
+      "ndkPath": "/Users/ctop/Library/Android/sdk/ndk/27.1.12297006",
+      "javaHome": "/Users/ctop/Library/Java/JavaVirtualMachines/jbr-17.0.14/Contents/Home",
+      "renderBackEnd": { "vulkan": false, "gles3": true, "gles2": false },
+      "swappy": false,
+      "appBundle": false,
+      "androidInstant": false,
+      "resizeableActivity": true,
+      "maxAspectRatio": "2.4"
+    },
+    "native": { "encrypted": false, "compressZip": false, "JobSystem": "none" }
+  }
+}

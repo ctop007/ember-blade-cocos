@@ -151,6 +151,7 @@ export class SkillFx {
                 break;
             case 'slamLand': this.slamLand(e); break;
             case 'land':
+                Sfx.play('land_slam', 0.25);
                 fx.burst('fx/smoke', e.x, e.y, 0, 4, { speed: 70, color: '#a08070', life: 0.35, size: 34, additive: false, s1: 0.8 });
                 break;
             case 'heroHurt':
@@ -386,12 +387,12 @@ export class SkillFx {
         Sfx.play('skill2_strike'); v.shake(4); v.flash(0.35);
         // pillar from the top of the screen down to the ground point (anchor at bottom)
         const H = 900;
-        this.obj('fx/light_pillar', e.x, e.y, 0, r * 1.5, H, SKY, 0.45, (nd, u) => {
+        this.obj('fx/light_pillar', e.x, e.y, 0, r * 1.9, H, SKY, 0.45, (nd, u) => {
             const sx = u < 0.12 ? 0.3 + u / 0.12 * 0.9 : 1.2 * (1 - (u - 0.12) / 0.88) + 0.05;
             nd.setScale(sx, u < 0.08 ? u / 0.08 : 1);
             (nd as any)._op.opacity = 235 * (1 - Math.max(0, u - 0.3) / 0.7);
         });
-        this.obj('fx/light_pillar', e.x, e.y, 0, r * 0.5, H, '#ffffff', 0.3, (nd, u) => {
+        this.obj('fx/light_pillar', e.x, e.y, 0, r * 0.9, H, '#ffffff', 0.3, (nd, u) => {
             nd.setScale(1 - u * 0.8, 1);
             (nd as any)._op.opacity = 255 * (1 - u);
         });
@@ -428,10 +429,14 @@ export class SkillFx {
         for (const tg of e.targets) {
             const fall = 0.14, sx = tg.x + 260, sz = 700;
             // meteor falls diagonally
-            this.obj('fx/meteor', sx, tg.y, sz, 220, 220, '#ffcf6a', fall, (nd, u) => {
+            // meteor art flies down-right at 45deg; mirror it so it falls down-left onto the target (normal blend: it has shading)
+            const mt = this.obj('fx/meteor', sx, tg.y, sz, 220, 220, '#ffa04a', fall, (nd, u) => {
                 nd.setPosition(sx + (tg.x - sx) * u, ny(tg.y, sz * (1 - u)));
-                nd.angle = 135 + 90;
-            });
+            }, { additive: false, anchor: false });
+            mt.setScale(-1, 1);
+            this.obj('fx/glow', sx, tg.y, sz, 200, 200, '#ffb13a', fall, (nd, u) => {
+                nd.setPosition(sx + (tg.x - sx) * u, ny(tg.y, sz * (1 - u)));
+            }, { anchor: false });
             this.later(fall, () => {
                 Sfx.play('ult_impact', 0.8);
                 v.shake(4);
@@ -439,7 +444,7 @@ export class SkillFx {
                 fx.spawn({ key: 'fx/flash_star', x: tg.x, y: tg.y, z: 30, life: 0.2, s0: 0.8, s1: 1.8, color: '#fff4c0', rot: Math.random() * 90 });
                 this.ring(tg.x, tg.y, 320, GOLD, 0.4);
                 fx.burst('fx/ember', tg.x, tg.y, 20, 8, { speed: 320, color: EMBER, life: 0.6, size: 28, up: 150, g: 500 });
-                fx.burst('fx/smoke', tg.x, tg.y, 10, 3, { speed: 60, color: '#4a3030', life: 0.6, size: 70, additive: false, s1: 1.6 });
+                fx.burst('fx/smoke', tg.x, tg.y, 6, 2, { speed: 70, color: '#8a6050', life: 0.45, size: 50, additive: false, s1: 1.4, a0: 0.45 });
             });
         }
     }

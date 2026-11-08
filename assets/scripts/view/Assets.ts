@@ -14,7 +14,7 @@ export class Assets {
     static frames: { [key: string]: SpriteFrame } = {};
     static real: { [key: string]: boolean } = {};
     static clips: { [key: string]: AudioClip } = {};
-    static avail = { images: [] as string[], audio: [] as string[] };
+    static avail = { images: [] as string[], audio: [] as string[], ogg: [] as string[], mp3: [] as string[] };
 
     /** Load config + manifest + all ready assets. onProgress(0..1). */
     static async init(onProgress: (p: number, label: string) => void) {
@@ -36,9 +36,15 @@ export class Assets {
             if (f) { this.frames[k] = f; this.real[k] = true; }
             tick('加载美术');
         });
+        // ogg first where the platform can decode it (Safari/iOS can't reliably), mp3 as fallback
+        const oggOk = Assets.canOgg();
+        const oggSet: { [k: string]: boolean } = {}; for (const k of this.avail.ogg || []) oggSet[k] = true;
+        const mp3Set: { [k: string]: boolean } = {}; for (const k of this.avail.mp3 || auds) mp3Set[k] = true;
         for (const k of auds) jobs.push(async () => {
-            const c = await load<AudioClip>(k, AudioClip);
-            if (c) this.clips[k] = c;
+            let c: AudioClip | null = null;
+            if (oggOk && oggSet[k]) c = await load<AudioClip>('ogg/' + k, AudioClip);
+            if (!c && mp3Set[k]) c = await load<AudioClip>(k, AudioClip);
+            if (c) { this.clips[k] = c; this.clipFmt[k] = (oggOk && oggSet[k] && c.nativeUrl.indexOf('.ogg') >= 0) ? 'ogg' : 'mp3'; }
             tick('加载音效');
         });
         let i = 0;
@@ -83,6 +89,15 @@ export class Assets {
         (f as any)._placeholderScale = 1 / s;
         if (this.manifest[key]) this.frames[key] = f; // don't cache fallback-size frames made before the manifest loads
         return f;
+    }
+
+    static clipFmt: { [k: string]: string } = {};
+    static canOgg(): boolean {
+        try {
+            const doc = (globalThis as any).document; if (!doc) return true; // native: engine decodes ogg
+            const a = doc.createElement('audio');
+            return !!(a.canPlayType && a.canPlayType('audio/ogg; codecs="vorbis"').replace(/no/, ''));
+        } catch (e) { return false; }
     }
 
     static clip(key: string): AudioClip | null { return this.clips[key] || null; }

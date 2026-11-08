@@ -42,6 +42,7 @@ export class Sfx {
     static last: { [k: string]: number } = {};
     static muted = false;
     static volume = 0.8;
+    static stats: { [k: string]: { clip: number; synth: number } } = {};
 
     static init(root: Node) {
         const n = new Node('audio'); root.addChild(n);
@@ -65,7 +66,9 @@ export class Sfx {
         if (this.last[name] && now - this.last[name] < 45) return;
         this.last[name] = now;
         const clip = Assets.clip('audio/sfx/' + name);
-        if (clip && this.src) { this.src.playOneShot(clip, vol * this.volume); return; }
+        const st = this.stats[name] || (this.stats[name] = { clip: 0, synth: 0 });
+        if (clip && this.src) { st.clip++; this.src.playOneShot(clip, vol * this.volume); return; }
+        st.synth++;
         this.synth(name, vol);
     }
 

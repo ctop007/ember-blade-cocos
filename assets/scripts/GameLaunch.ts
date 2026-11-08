@@ -215,6 +215,7 @@ export class GameLaunch extends Component {
                 };
             },
             events() { return self.evCount; },
+            audio() { const fmt: any = {}; for (const k in Assets.clipFmt) fmt[Assets.clipFmt[k]] = (fmt[Assets.clipFmt[k]] || 0) + 1; return { sfx: Sfx.stats, formats: fmt, bgm: !!(Sfx.bgm && Sfx.bgm.playing) }; },
             cast(name: string) { return self.world ? self.world.forceCast(name) : false; },
             spawn(type: string, n = 1) { const w = self.world; if (!w) return 0; for (let i = 0; i < n; i++) w.spawnEdge(type as any); return n; },
             setWave(n: number) { self.world?.setWave(n); self.updateMission(); },

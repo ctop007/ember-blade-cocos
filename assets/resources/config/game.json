@@ -261,7 +261,7 @@
    "moves": {
     "sweep": {
      "weight": 4,
-     "range": 220,
+     "range": 200,
      "angle": 120,
      "windup": 0.8,
      "damage": 34,

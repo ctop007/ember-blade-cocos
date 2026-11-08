@@ -195,6 +195,12 @@ const again = await B('uiPos', -120, -178);
 await T.tap(again.x, again.y, 50); await wait(800);
 s = await S();
 check('result -> play again', s.phase !== 'victory' && s.phase !== 'defeat' && s.hp === s.maxHp, `phase=${s.phase}`);
+{
+    const au = await B('audio');
+    const synthOnly = Object.entries(au.sfx).filter(([, v]) => v.clip === 0).map(([k]) => k);
+    console.log('audio formats', JSON.stringify(au.formats), 'bgm', au.bgm, 'played', Object.keys(au.sfx).length);
+    check('all played sfx use real clips', synthOnly.length === 0, synthOnly.join(','));
+}
 console.log('maxEnemies', maxEnemies, 'events', JSON.stringify(await EV()));
 console.log('errors', errs.length ? errs.slice(0, 10).join('\n') : 'none');
 const fails = Object.entries(results).filter(([, v]) => !v).map(([k]) => k);

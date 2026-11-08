@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Copy assets with status=ready from _shared/assets (per manifest.json) into assets/resources/,
 // and copy the shared config. Writes assets/resources/config/available.json listing what exists.
-// Only mp3 is copied for audio (Web build; avoids duplicate same-name resources in Cocos).
+// Audio: mp3 -> resources/<path>.mp3, ogg -> resources/ogg/<path>.ogg (separate dirs: Cocos can't hold two same-name assets).
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,8 +15,8 @@ const m = JSON.parse(fs.readFileSync(path.join(src, 'manifest.json'), 'utf8'));
 
 const avail = { images: [], audio: [], manifestUpdated: m.updated, synced: new Date().toISOString() };
 let copied = 0, skipped = 0;
-function copy(rel) {
-    const a = path.join(src, rel), b = path.join(dst, rel);
+function copy(rel, to = rel) {
+    const a = path.join(src, rel), b = path.join(dst, to);
     if (!fs.existsSync(a)) return false;
     fs.mkdirSync(path.dirname(b), { recursive: true });
     const sa = fs.statSync(a);
@@ -30,7 +30,11 @@ for (const it of m.assets) {
         if (copy(it.path)) avail.images.push(it.path.replace(/\.png$/, ''));
     } else if (it.type === 'audio') {
         const mp3 = (it.files || []).find(f => f.endsWith('.mp3')) || it.path + '.mp3';
-        if (copy(mp3)) avail.audio.push(it.path);
+        const ogg = (it.files || []).find(f => f.endsWith('.ogg')) || it.path + '.ogg';
+        const hasMp3 = copy(mp3), hasOgg = copy(ogg, 'ogg/' + ogg);
+        if (hasMp3 || hasOgg) avail.audio.push(it.path);
+        if (hasOgg) (avail.ogg = avail.ogg || []).push(it.path);
+        if (hasMp3) (avail.mp3 = avail.mp3 || []).push(it.path);
     }
 }
 const cfgSrc = path.join(shared, 'config/game.json');
