@@ -73,14 +73,15 @@
 
 - UI 与特效素材已全部到货，预烘焙占位图机制保留作为缺图兜底（`tools/bake-placeholders.mjs`）。
 - 战斗 HUD 按 `_shared/UI_LAYOUT.md` 以 CSS 像素实现：主攻 34/36、闪跳 21/23、技能 22/23、大招 25/26（视觉/热区半径），触区互不交叠；同一按钮的第二根手指会被忽略。右上暂停旁常显「乃秀游戏 Demo」。
+- **HUD 缩放固定为 K = 720/390 ≈ 1.846**（UI_LAYOUT.md §1）。所有 CSS 数值 × K 得到 720p 设计坐标，**绝不使用物理像素高度做分母**。Cocos 原生端 `view.getFrameSize()` 返回物理像素（SM-G9980 为 3200×1440），早期版本用它算 `k = 720 / frameHeight`，结果 HUD 在真机上小了约 3.7 倍；现改为常量 K，并用 `view.getVisibleSize()`（设计单位，fitHeight 政策下恒为 720 高）反推视口 CSS 宽高。安全区 `sys.getSafeAreaRect()` 返回 UI 坐标（左下原点），换算 CSS 后取 `max(12, inset)`；同时修正了上下 inset 的取反错误。真机截图见 `tools/shots/device_hudfix_v4_battle.png`，HUD 占比与 844×390 浏览器预览一致（头像 44 CSS、血条 125 CSS）。
 - 主角与 4 类敌人（小鬼、灯笼怪、重甲、Boss）共 5 套骨骼动画已全部接入并默认开启，`?rig=0` 保留单图渲染供对比。
 - 共享配置直接使用，不再有本地覆盖。groundTop=440 和 sweep.range=200 已经合进共享的 game.json。
 - 所有资源在启动时一次性预加载，首屏约 9 MB。如果要上线，应该改成按波次分包，PNG 转 webp 或压缩纹理。
 
 ## APK 打包体验
 
-- **产物**：`_deliverables/ember-cocos.apk`，约 40 MB（versionCode 3，versionName 1.2，debug，只含 arm64-v8a；已包含全部 5 个角色骨骼部件与重制 HUD 全部正式素材）。其中 `libcocos.so` 解压后 73 MB，是体积的大头。
-- **aapt2 核对**：package `com.yuen7.ember.cocos`，versionCode 3（versionName 1.2），label `烬刃·Cocos版`，minSdk 21，targetSdk 34，compileSdk 36，native-code 只有 `arm64-v8a`。主 Activity 的 `screenOrientation=6`（sensorLandscape），声明了 `android.hardware.screen.landscape`，带 roundIcon。apksigner 显示签名证书是 `CN=Android Debug`（`~/.android/debug.keystore`）。
+- **产物**：`_deliverables/ember-cocos.apk`，约 40.3 MB（versionCode 4，versionName 1.3，debug，只含 arm64-v8a；已包含全部 5 个角色骨骼部件、重制 HUD 与固定 K 缩放修复）。其中 `libcocos.so` 解压后 73 MB，是体积的大头。
+- **aapt2 核对**：package `com.yuen7.ember.cocos`，versionCode 4（versionName 1.3），label `烬刃·Cocos版`，minSdk 21，targetSdk 34，compileSdk 36，native-code 只有 `arm64-v8a`。主 Activity 的 `screenOrientation=6`（sensorLandscape），声明了 `android.hardware.screen.landscape`，带 roundIcon。apksigner 显示签名证书是 `CN=Android Debug`（`~/.android/debug.keystore`）。
 - **配置**：`tools/build/android.json` 通过 `--build "configPath=..."` 传入。字段包括 packageName、横屏的 orientation（landscapeLeft/Right）、apiLevel 34、appABIs `["arm64-v8a"]`、keystore 四项、sdkPath、ndkPath（27.1.12297006）、javaHome（JBR 17）、渲染后端 gles3、`debug: false`（关掉左下角的统计面板）。
 - **图标**：放在 `native/engine/android/res`，这个目录要提交，构建时会拷进工程。各 density 的 `ic_launcher`、`ic_launcher_round`、`ic_launcher_foreground`（按 108dp 画布内缩到 84dp）都由 `_shared/assets/ui/app-icon.png` 生成，另有 `mipmap-anydpi-v26` 的 adaptive XML，背景色 #2a1630。AndroidManifest 里手动补了 `android:roundIcon`。
 - **坑**：
@@ -88,5 +89,6 @@
   2. **原生端没有完整的 Canvas 2D**：`getContext('2d')` 返回 null。第一版 APK 在首页画占位图时抛出 `addColorStop of null`，结果黑屏，只有 1 个 draw call。修法：白色贴图改用原始 RGBA 像素生成 `ImageAsset`。还没到货的图先在 Web 上用 `tools/bake-placeholders.mjs` 烘焙成 PNG，放进 `resources/placeholders/`。运行时如果还缺图，就退回一张纯色贴图。
   3. 用 `window.setTimeout` 移除的输入锁和抽卡回调，统一改成 `tween().delay().call()`，由引擎调度，Web 和原生端行为一致。
   4. adb 冒烟时点不到按钮，其实是我把屏幕坐标算错了，触摸本身正常。加了一行 `input.on(TOUCH_START)` 日志才确认触摸已经进到引擎。另外 zsh 不会把 `$D` 拆成多个参数，`adb -s $D` 会失败，要用函数包一层。
+  5. **原生窗口尺寸是物理像素**：`view.getFrameSize()` 在 Android 上返回 3200×1440（DPR 4 级别），浏览器预览里返回 CSS 尺寸 844×390。同一份 `k = 720 / frameHeight` 在 Web 上得到 1.846，在真机上得到 0.5，HUD 缩小 3.7 倍。现在 HUD 只用固定 `K = 720/390`（UI_LAYOUT.md §1），视口宽高用 `view.getVisibleSize() / K` 得到 CSS 值，与设备分辨率无关。
 - **真机冒烟**：Samsung SM-G9980（Android 15，3200×1440），`adb install -r` 成功。启动后是横屏（ROTATION_90），首页 60 fps，进战斗后摇杆、普攻连击和炎月斩都正常，失败结算和“再来一局”也正常，logcat 里没有 JS 报错。只操作了本包，没动其他 App。
 - **无人物语音**：APK 解包后，没有任何文件名含 voice，也搜不到 `ult_voice` 或台词文本。包内共 56 个音频文件，即 28 个音效/BGM 各有 ogg 和 mp3 两份。

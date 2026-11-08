@@ -6,8 +6,13 @@ import type { World } from '../core/world';
 
 interface SkillBtn { id: string; node: Node; r: number; hitR: number; icon: Sprite; cd: Graphics; cdLbl: Label; cost: Label | null; glow: Node | null; frameN: Node; base: number; }
 
-/** Layout spec: _shared/UI_LAYOUT.md (CSS px, top-left origin). Design space = CSS * k, k = 720 / CSS height. */
+/** Layout spec: _shared/UI_LAYOUT.md §1 — CSS px, top-left origin, fixed design height H_design=720. */
 export class Hud implements InputHost {
+    /** CSS px of the layout spec. Everything in UI_LAYOUT.md is authored against this height. */
+    static readonly CSS_H = 390;
+    static readonly DESIGN_H = 720;
+    /** Fixed design units per CSS px (720/390 ≈ 1.846). Never derived from frame size / physical pixels. */
+    static readonly K = Hud.DESIGN_H / Hud.CSS_H;
     root: Node;
     halfW = 640; halfH = 360; safeL = 0; safeR = 0;
     joyRadius = 90; joyDead = 0.15;
@@ -44,15 +49,18 @@ export class Hud implements InputHost {
     get Bc() { return this.Hc - Math.max(10, this.insB); }
 
     private computeSafe(vs: any) {
+        // FIXED design scale (UI_LAYOUT.md §1). getFrameSize() is physical pixels on native (3200×1440 on SM-G9980),
+        // so using it as the denominator shrank the whole HUD ~3.7×. Visible size is in design units and is always
+        // 720 high under the project's fitHeight policy; convert it back to spec CSS px with the constant K.
+        this.k = Hud.K;
+        this.Wc = vs.width / this.k;
+        this.Hc = vs.height / this.k;
         try {
-            const fs = view.getFrameSize();
-            this.Wc = fs.width > 1 ? fs.width : vs.width; this.Hc = fs.height > 1 ? fs.height : vs.height;
-        } catch (e) { this.Wc = vs.width; this.Hc = vs.height; }
-        this.k = 720 / Math.max(1, this.Hc);
-        try {
-            const r = sys.getSafeAreaRect(); // design units
-            this.insL = Math.max(0, r.x) / this.k; this.insR = Math.max(0, vs.width - r.x - r.width) / this.k;
-            this.insT = Math.max(0, r.y) / this.k; this.insB = Math.max(0, vs.height - r.y - r.height) / this.k;
+            const r = sys.getSafeAreaRect(); // design units, bottom-left origin
+            this.insL = Math.max(0, r.x) / this.k;
+            this.insR = Math.max(0, vs.width - r.x - r.width) / this.k;
+            this.insT = Math.max(0, vs.height - r.y - r.height) / this.k;
+            this.insB = Math.max(0, r.y) / this.k;
         } catch (e) { this.insL = this.insR = this.insT = this.insB = 0; }
         this.safeL = this.S(Math.max(12, this.insL)); this.safeR = this.S(Math.max(12, this.insR));
     }
