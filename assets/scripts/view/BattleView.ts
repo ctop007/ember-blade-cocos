@@ -60,7 +60,7 @@ export class BattleView {
         this.shadows = node('shadows', this.world);
         this.ents = node('ents', this.world);
         this.fxTop = node('fxTop', this.world);
-        this.addBg('bg/foreground', 1.25, 720 - Assets.size('bg/foreground')[1] * 0.35, 0.6, 150);
+        this.addBg('bg/foreground', 1.25, 520, 1, Assets.isReal('bg/foreground') ? 230 : 150);
         this.numbers = node('numbers', this.world);
         this.fx = new Fx(this.fxTop, this.groundFx);
         this.fx.max = cfg.combat.maxParticles || 260;

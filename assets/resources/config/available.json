@@ -1,5 +1,9 @@
 {
  "images": [
+  "bg/far",
+  "bg/mid",
+  "bg/ground",
+  "bg/foreground",
   "chars/hero/idle",
   "chars/hero/run",
   "chars/hero/attack1",
@@ -13,9 +17,32 @@
   "chars/hero/cast",
   "chars/hero/hurt",
   "chars/hero/dead",
-  "chars/hero/shadow"
+  "chars/hero/shadow",
+  "chars/imp/idle",
+  "chars/imp/run",
+  "chars/imp/windup",
+  "chars/imp/attack",
+  "chars/imp/hurt",
+  "chars/imp/dead",
+  "chars/imp/shadow",
+  "chars/lantern/idle",
+  "chars/lantern/move",
+  "chars/lantern/windup",
+  "chars/lantern/throw",
+  "chars/lantern/hurt",
+  "chars/lantern/dead",
+  "chars/lantern/shadow",
+  "chars/brute/idle",
+  "chars/brute/walk",
+  "chars/brute/windup",
+  "chars/brute/charge",
+  "chars/brute/hurt",
+  "chars/brute/dead",
+  "chars/brute/shadow",
+  "chars/boss/shadow",
+  "ui/app-icon"
  ],
  "audio": [],
- "manifestUpdated": "2026-11-08T21:38:16",
- "synced": "2026-11-08T13:40:21.442Z"
+ "manifestUpdated": "2026-11-08T22:04:30",
+ "synced": "2026-11-08T14:04:43.781Z"
 }

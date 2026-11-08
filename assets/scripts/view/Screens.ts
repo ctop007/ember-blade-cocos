@@ -226,7 +226,7 @@ export class Screens {
 
     result(win: boolean, stats: any, onAgain: () => void, onHome: () => void): Node {
         const n = node('Result', this.root);
-        const m = rect(n, this.halfW * 2 + 20, this.halfH * 2 + 20, hex('#000000', 0)).node; m.addComponent(BlockInputEvents);
+        const m = rect(n, this.halfW * 2 + 20, this.halfH * 2 + 20, hex('#000000')).node; m.addComponent(BlockInputEvents);
         fade(m, 0, 190, 0.4);
         const panel = node('panel', n);
         sprite('ui/panel', panel, 560, 470);

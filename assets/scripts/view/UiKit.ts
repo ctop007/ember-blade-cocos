@@ -1,5 +1,5 @@
 /** Node factories: sprites, labels, graphics, buttons. All UI is code-built. */
-import { Node, Sprite, Label, UITransform, Color, Graphics, Layers, Material, builtinResMgr, gfx, SpriteFrame, UIOpacity, HorizontalTextAlignment, VerticalTextAlignment, Vec3 } from 'cc';
+import { Node, Sprite, Label, UITransform, Color, Graphics, Layers, Material, builtinResMgr, gfx, SpriteFrame, ImageAsset, UIOpacity, HorizontalTextAlignment, VerticalTextAlignment, Vec3 } from 'cc';
 import { Assets } from './Assets';
 
 export const UI_LAYER = Layers.Enum.UI_2D;
@@ -96,11 +96,19 @@ export function opacity(n: Node, a?: number): UIOpacity {
 }
 
 /** Full-rect filled Graphics (for masks / dim). */
-export function rect(parent: Node, w: number, h: number, c: Color, name = 'rect'): Graphics {
-    const g = gfxNode(parent, name);
-    size(g.node, w, h);
-    g.fillColor = c; g.rect(-w / 2, -h / 2, w, h); g.fill();
-    return g;
+/** Solid rect as a Sprite on a white texture. (Graphics bakes vertex colour and ignores UIOpacity, so fades need a Sprite.) */
+let _white: SpriteFrame | null = null;
+export function rect(parent: Node, w: number, h: number, c: Color, name = 'rect'): Sprite {
+    if (!_white) {
+        const cv = document.createElement('canvas'); cv.width = cv.height = 4;
+        const cx = cv.getContext('2d')!; cx.fillStyle = '#fff'; cx.fillRect(0, 0, 4, 4);
+        _white = SpriteFrame.createWithImage(new ImageAsset(cv as any)); _white.packable = false;
+    }
+    const n = node(name, parent);
+    const sp = n.addComponent(Sprite);
+    sp.sizeMode = Sprite.SizeMode.CUSTOM; sp.trim = false; sp.spriteFrame = _white;
+    size(n, w, h); sp.color = c;
+    return sp;
 }
 
 export function roundRect(g: Graphics, x: number, y: number, w: number, h: number, r: number, fill?: Color, stroke?: Color, lw = 3) {

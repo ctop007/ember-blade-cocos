@@ -26,6 +26,7 @@ export class GameLaunch extends Component {
     private fps = 60; private fpsAcc = 0; private fpsN = 0;
     private advArrow: Node | null = null;
     private timeScale = 1;
+    private evCount: { [k: string]: number } = {};
 
     async start() {
         view.setDesignResolutionSize(1280, 720, ResolutionPolicy.FIXED_HEIGHT);
@@ -173,6 +174,7 @@ export class GameLaunch extends Component {
     private onEvent(e: any) {
         const w = this.world!;
         this.sfx!.handle(e, w);
+        const ek = e.type === 'swing' ? 'swing' + e.step : e.type; this.evCount[ek] = (this.evCount[ek] || 0) + 1;
         switch (e.type) {
             case 'waveStart': this.screens.banner(e.title, e.tip); this.updateMission(); break;
             case 'spawn': case 'kill': case 'advance': case 'waveClear': this.updateMission(); break;
@@ -206,12 +208,13 @@ export class GameLaunch extends Component {
                 const h = w.hero;
                 return {
                     hp: Math.round(h.hp), maxHp: h.maxHp, mp: Math.round(h.mp), rage: Math.round(h.rage), combo: w.combo, wave: w.wave + 1,
-                    phase: self.inBattle ? w.phase : 'home', heroState: h.state, x: Math.round(h.x), y: Math.round(h.y),
+                    phase: self.inBattle ? w.phase : 'home', heroState: h.state, x: Math.round(h.x), y: Math.round(h.y), face: h.face, cds: h.cds, ultReady: h.rage >= self.cfg.player.maxRage,
                     enemies: w.enemies.filter(e => e.state !== 'dead').map(e => ({ type: e.type, hp: e.hp, x: Math.round(e.x), y: Math.round(e.y), state: e.state })),
                     fps: Math.round(self.fps), particles: self.bv ? self.bv.fx.count() : 0, stats: w.stats, cards: w.takenCards, paused: self.paused,
                     draftReady: !!(self.draftN && (self.draftN as any)._ready),
                 };
             },
+            events() { return self.evCount; },
             cast(name: string) { return self.world ? self.world.forceCast(name) : false; },
             spawn(type: string, n = 1) { const w = self.world; if (!w) return 0; for (let i = 0; i < n; i++) w.spawnEdge(type as any); return n; },
             setWave(n: number) { self.world?.setWave(n); self.updateMission(); },
