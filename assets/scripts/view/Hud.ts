@@ -84,15 +84,12 @@ export class Hud implements InputHost {
         const ax = R - 92, ay = B + 92;
         const sk = this.cfg.skills;
         this.addBtn('attack', 'ui/btn_attack', ax, ay, 76, null, false);
-        this.addBtn('dodge', 'ui/btn_dodge', ax - 152, ay - 34, 40, null, false);
-        this.addBtn('skill1', 'ui/icon_skill1', ax - 140, ay + 62, 42, sk.crescent.mp, true);
-        this.addBtn('skill2', 'ui/icon_skill2', ax - 88, ay + 136, 42, sk.skyfall.mp, true);
-        this.addBtn('skill3', 'ui/icon_skill3', ax - 4, ay + 170, 42, sk.meteorSpear.mp, true);
-        this.addBtn('jump', 'ui/btn_jump', ax + 30, ay + 96 + 0, 36, null, false);
-        this.addBtn('ult', 'ui/icon_ult', ax - 224, ay + 136 - 20, 50, null, true, true);
-        // jump sits above attack: place to keep clear of skill3
-        this.btnMap['jump'].node.setPosition(ax + 52, ay + 104);
-        this.btnMap['skill3'].node.setPosition(ax - 22, ay + 176);
+        this.addBtn('dodge', 'ui/btn_dodge', ax - 150, ay - 40, 40, null, false);
+        this.addBtn('skill1', 'ui/icon_skill1', ax - 150, ay + 62, 42, sk.crescent.mp, true);
+        this.addBtn('skill2', 'ui/icon_skill2', ax - 98, ay + 152, 42, sk.skyfall.mp, true);
+        this.addBtn('skill3', 'ui/icon_skill3', ax - 4, ay + 192, 42, sk.meteorSpear.mp, true);
+        this.addBtn('jump', 'ui/btn_jump', ax + 46, ay + 118, 36, null, false);
+        this.addBtn('ult', 'ui/icon_ult', ax - 256, ay + 128, 50, null, true, true);
     }
 
     private addBtn(id: string, key: string, x: number, y: number, r: number, cost: number | null, framed: boolean, ult = false) {

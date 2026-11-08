@@ -1,0 +1,28 @@
+// Quick smoke: load, screenshot home, tap start, screenshot battle. node tools/smoke.mjs [w h]
+import { chromium } from 'playwright';
+import fs from 'node:fs';
+const W = +(process.argv[2] || 844), H = +(process.argv[3] || 390);
+const PAGE = process.env.URL || 'http://127.0.0.1:8942/?debug';
+fs.mkdirSync(new URL('./shots/', import.meta.url), { recursive: true });
+const shot = (n) => new URL(`./shots/${n}.png`, import.meta.url).pathname;
+const browser = await chromium.launch({ channel: 'chrome' }).catch(() => chromium.launch());
+const ctx = await browser.newContext({ viewport: { width: W, height: H }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+const page = await ctx.newPage();
+const errs = [];
+page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') errs.push(m.type() + ': ' + m.text()); });
+page.on('response', r => { if (r.status() >= 400) errs.push('HTTP ' + r.status() + ' ' + r.url()); });
+page.on('pageerror', e => errs.push('pageerror: ' + e.message));
+const t0 = Date.now();
+await page.goto(PAGE);
+await page.waitForFunction(() => window.__AI_BRIDGE__ && window.__AI_BRIDGE__.state().phase === 'home', null, { timeout: 30000 });
+console.log('home ready ms', Date.now() - t0);
+await page.waitForTimeout(600);
+await page.screenshot({ path: shot(`home_${W}`) });
+const tap = async (p) => { await page.touchscreen.tap(p.x, p.y); };
+const startPos = await page.evaluate(() => window.__AI_BRIDGE__.uiPos(0, -88));
+await tap(startPos);
+await page.waitForTimeout(2500);
+console.log(JSON.stringify(await page.evaluate(() => window.__AI_BRIDGE__.state())));
+await page.screenshot({ path: shot(`battle_${W}`) });
+console.log(errs.slice(0, 20).join('\n'));
+await browser.close();

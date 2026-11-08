@@ -1,5 +1,5 @@
 /** Promise-based resource loading. Real assets from resources/ (listed in config/available.json), canvas placeholders otherwise. */
-import { resources, JsonAsset, SpriteFrame, ImageAsset, Texture2D, AudioClip, Asset } from 'cc';
+import { resources, JsonAsset, SpriteFrame, ImageAsset, AudioClip, Asset } from 'cc';
 import { drawPlaceholder } from './PlaceholdersFx';
 
 function load<T extends Asset>(path: string, type: any): Promise<T | null> {
@@ -78,12 +78,10 @@ export class Assets {
         const cw = Math.max(4, Math.round(w * s)), ch = Math.max(4, Math.round(h * s));
         const canvas = drawPlaceholder(key, cw, ch);
         const img = new ImageAsset(canvas as any);
-        const tex = new Texture2D();
-        tex.image = img;
-        f = new SpriteFrame();
-        f.texture = tex;
+        f = SpriteFrame.createWithImage(img);
+        f.packable = false;
         (f as any)._placeholderScale = 1 / s;
-        this.frames[key] = f;
+        if (this.manifest[key]) this.frames[key] = f; // don't cache fallback-size frames made before the manifest loads
         return f;
     }
 

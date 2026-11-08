@@ -60,7 +60,7 @@ export class BattleView {
         this.shadows = node('shadows', this.world);
         this.ents = node('ents', this.world);
         this.fxTop = node('fxTop', this.world);
-        this.addBg('bg/foreground', 1.25, 720 - Assets.size('bg/foreground')[1] * 0.6, 0.6);
+        this.addBg('bg/foreground', 1.25, 720 - Assets.size('bg/foreground')[1] * 0.35, 0.6, 150);
         this.numbers = node('numbers', this.world);
         this.fx = new Fx(this.fxTop, this.groundFx);
         this.fx.max = cfg.combat.maxParticles || 260;
@@ -70,7 +70,7 @@ export class BattleView {
         this.hero = new EntView(this, 'hero', this.ents, this.shadows, 'idle');
     }
 
-    private addBg(key: string, par: number, y: number, sc = 1) {
+    private addBg(key: string, par: number, y: number, sc = 1, alpha = 255) {
         const [tw0, th] = Assets.size(key);
         const tw = tw0 * sc;
         const n = node(key, this.world);
@@ -79,6 +79,7 @@ export class BattleView {
         for (let i = 0; i < need + 1; i++) {
             const s = sprite(key, n, tw, th * sc, { anchorKey: false });
             anchor(s.node, 0, 1);
+            if (alpha < 255) opacity(s.node, alpha);
             tiles.push(s.node);
         }
         this.bgLayers.push({ n, par, tiles, tw, y });

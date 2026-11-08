@@ -33,7 +33,8 @@ export class Screens {
     loading(): { set: (p: number, l: string) => void; close: () => void } {
         const n = node('Loading', this.root);
         rect(n, this.halfW * 2 + 20, this.halfH * 2 + 20, hex('#0c0812'));
-        const logo = sprite('ui/logo', n, 560, 210); logo.node.setPosition(0, 70);
+        label('烬刃', n, 0, 90, { size: 120, color: '#ffb04a', outline: '#1a0f14', outlineW: 8 });
+        label('EMBER BLADE', n, 0, -10, { size: 30, color: '#ffe0b0' });
         const W = 520;
         const bar = gfxNode(n); roundRect(bar, -W / 2, -150, W, 22, 11, hex('#1a1020'), hex('#e0a060'), 2);
         const fill = gfxNode(n);

@@ -289,15 +289,16 @@ function drawBg(name: string, w: number, h: number, g: Ctx) {
         for (let x = 0; x <= w; x += 80) g.lineTo(x, h * 0.48 + Math.sin(x * 0.006) * 50 + Math.sin(x * 0.017) * 20);
         g.lineTo(w, h); g.lineTo(0, h); g.fill();
     } else if (name === 'mid') {
-        for (let i = 0; i < 14; i++) {
-            const x = (i * 197 + 40) % w, tw = 50 + (i * 31 % 40);
-            g.fillStyle = i % 2 ? '#1c1220' : '#24162a';
-            g.fillRect(x - tw / 2, 0, tw, h * 0.72);
-            g.fillStyle = '#100a14'; g.beginPath(); g.ellipse(x, h * 0.1, tw * 2.2, 110, 0, 0, Math.PI * 2); g.fill();
-            // glowing mushrooms / lanterns
-            const gx = x + 40, gy = h * 0.66;
-            const gg = g.createRadialGradient(gx, gy, 2, gx, gy, 40); gg.addColorStop(0, 'rgba(255,170,80,0.9)'); gg.addColorStop(1, 'rgba(255,120,40,0)');
-            g.fillStyle = gg; g.beginPath(); g.arc(gx, gy, 40, 0, Math.PI * 2); g.fill();
+        // trunks rise from the ground line (h*0.5 = design y 360) up into a sparse canopy; top stays transparent
+        for (let i = 0; i < 9; i++) {
+            const x = (i * 241 + 60) % w, tw = h * (0.06 + (i * 31 % 40) / 1000);
+            const top = h * (0.08 + (i * 13 % 7) * 0.02);
+            g.fillStyle = i % 2 ? '#2a1a30' : '#33203a';
+            g.fillRect(x - tw / 2, top, tw, h * 0.5 - top + 4);
+            g.fillStyle = 'rgba(30,18,38,0.92)'; g.beginPath(); g.ellipse(x, top, tw * 2.4, h * 0.07, 0, 0, Math.PI * 2); g.fill();
+            const gx = x + tw, gy = h * 0.47, gr0 = h * 0.05;
+            const gg = g.createRadialGradient(gx, gy, 1, gx, gy, gr0); gg.addColorStop(0, 'rgba(255,170,80,0.9)'); gg.addColorStop(1, 'rgba(255,120,40,0)');
+            g.fillStyle = gg; g.beginPath(); g.arc(gx, gy, gr0, 0, Math.PI * 2); g.fill();
         }
     } else if (name === 'ground') {
         const gr = g.createLinearGradient(0, 0, 0, h);
