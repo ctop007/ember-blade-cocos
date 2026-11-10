@@ -2,7 +2,7 @@
 import { Node, EventTouch, input, Input, EventKeyboard, KeyCode, Vec2 } from 'cc';
 import { InputFrame, emptyInput } from '../core/types';
 
-export interface BtnRef { id: string; node: Node; r: number; }
+export interface BtnRef { id: string; node: Node; r: number; hitR?: number; }
 
 export interface InputHost {
     buttons(): BtnRef[];
@@ -47,7 +47,7 @@ export class TouchInput {
             if (!b.node.activeInHierarchy) continue;
             const p = b.node.position;
             const d = Math.hypot(p.x - x, p.y - y);
-            if (d <= b.r + 12 && d < bd) { bd = d; best = b.id; }
+            if (d <= (b.hitR ?? b.r + 12) && d < bd) { bd = d; best = b.id; }
         }
         return best;
     }
@@ -58,8 +58,10 @@ export class TouchInput {
         const u = t.getUILocation(); const p = this.host.toLocal(u.x, u.y);
         const b = this.hitBtn(p.x, p.y);
         if (b) {
+            // one finger owns a button: a second finger on the same button is ignored (releasing it must not release the owner)
+            if ((this.held[b] || 0) > 0) return;
             this.touchBtn[id] = b;
-            this.held[b] = (this.held[b] || 0) + 1;
+            this.held[b] = 1;
             this.pressed[b] = true;
             this.host.btnVisual(b, true);
             return;
@@ -92,8 +94,8 @@ export class TouchInput {
         const b = this.touchBtn[id];
         if (b) {
             delete this.touchBtn[id];
-            this.held[b] = Math.max(0, (this.held[b] || 0) - 1);
-            if (!this.held[b]) this.host.btnVisual(b, false);
+            this.held[b] = 0;
+            this.host.btnVisual(b, false);
         }
     }
 

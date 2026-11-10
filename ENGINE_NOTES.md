@@ -12,7 +12,7 @@
 
 | 项目 | 数值 |
 |---|---|
-| Web 产物大小 | `build/web-mobile` 共 18 MB（10 MB 时尚无首页背景、Logo、大招立绘/横幅；新增约 4 MB，另有 0.65 MB 预烘焙占位图），其中 resources 15 MB，引擎和脚本约 3 MB |
+| Web 产物大小 | `build/web-mobile` 共约 22 MB（加入骨骼部件与重制 HUD 后）（10 MB 时尚无首页背景、Logo、大招立绘/横幅；新增约 4 MB，另有 0.65 MB 预烘焙占位图），其中 resources 15 MB，引擎和脚本约 3 MB |
 | 首屏传输 | 157 个请求，约 9.2 MB（所有 ready 资源都在启动时预加载） |
 | 首屏加载时间 | 从 goto 到首页可点击：2.2–2.5 s（本地，未节流） |
 | 普通战斗 FPS（1×） | 60（p95 帧间隔 16.8 ms） |
@@ -25,6 +25,43 @@
 - 视口 844×390 和 667×375 都 **ALL PASS**。覆盖的操作：摇杆、三段普攻、长按蓄力突刺、按住摇杆的同时点闪避、跳跃接下劈、三个技能、大招、三次抽卡（发牌动画期间点击被正确忽略）、Boss 标题、结算、再来一局。
 - 机器人不会躲技能，正常打一般死在 Boss 手上，用时 61–79 s。`WIN=1` 时开无敌，走通胜利流程，用时约 96 s。
 - 核心逻辑的无头模拟 `tools/sim.ts` 跑了 3 个种子，2 胜 1 负，单局 65–85 s。
+
+## 骨骼动画实现对比
+
+- **数据**：直接播放 `_shared/rigs/{hero,imp,lantern,brute,boss}/` 全部 5 个角色的 `rig.json` + `anims.json`（共 47 个动作、58 张部件贴图，包含 `spear_smear` / `sword_smear` 等动画内换图部件），按 ANIMATION.md 4.1 实现。关键帧是相对 setup pose 的增量，每个属性单独插值，ease 写在目标帧上；`keyMode:absolute` 也支持。`phases` 按玩法时长拉伸：attack 的 active 对齐 `hitAt`、recovery 对齐 `duration`，其他状态对齐 core 的状态时长；Boss 的跳跃（预备+滞空）、召唤、横扫跨状态保持连续播放。边界会收敛到同一实例，避免 active==recovery 时出现空段。
+- **渲染**：纯 TS 的 `RigPlayer` 计算骨骼世界矩阵，Cocos 里每个 slot 一个 Sprite，按 z 稳定排序，pivot 转成锚点。部件换图和换层走 slot 轨道，alpha 走 `UIOpacity`。y 轴和旋转方向在这里取反一次。敌人生成时对循环待机/移动做随机初始相位偏移，避免同屏多只小怪齐步。
+- **弹簧骨**：主角（发髻、衣摆、枪缨）、小鬼（头顶火焰、耳朵）、灯笼怪（两节符签、火焰）、重甲（头顶树枝）、Boss（两节披风、头冠火羽）均按世界角度做弹簧，受父骨转动和重力的切向分量驱动，固定 1/120s 子步防止刚性弹簧发散。
+- **手感层**（视图侧，core 不受影响）：
+  - 状态切换时快照当前姿势，0.06–0.12s 内交叉淡入，不再硬切。
+  - 输入缓冲 0.2s（`attack.chainBuffer`）：闪避和攻击按下后，在不可行动状态里也会记住，条件满足立即执行。
+  - 后摇取消：普攻命中 0.06s 后就能被下一段普攻或闪避取消，不必等完整 duration。
+  - 前冲和蓄力突进改成位移曲线积分，起点快、末段慢，总距离和帧率无关。
+  - 刀光改成跟随武器/利爪插槽（主角 `spearTip`、小鬼 `clawTip`、重甲 `chargeFront`、Boss `swordTip`）轨迹的条带网格，由动画里的 `trail_on/trail_off` 事件开关。
+  - 顿帧时动画播放器不推进，姿势、弹簧和拖尾都停住；状态时间本身不前进，所以不会补帧跳变。
+- **对比开关**：默认全角色骨骼。`?rig=0` 用旧单图，`?rig=1` 用骨骼，运行时也可以用桥接 `rigMode(false/true)` 一键切换主角与场上所有敌人。
+- **性能（与 Godot 统一口径，脚本 `tools/bench_unified.mjs` 由 `demo_godot/tools/bench_unified.mjs` 复制并改用同一组桥接口）**：
+  - **场景**：844×390、DPR 2；20 只存活敌人（14 小鬼 + 4 灯笼怪 + 2 重甲，少于 20 时每 800ms 补小鬼，死亡即补）；`god(true)`；**真实触摸按住主攻键**（touchStart 不放）；CDP `Emulation.setCPUThrottlingRate` 1×/4×/6×，每档 10 秒。两档 `?rig=0`（旧单图）/`?rig=1`（骨骼）各跑一遍。
+  - **busy**：在应用自己的 `requestAnimationFrame` 回调内，用 `performance.now()` 包住回调测到的**主线程忙时**（脚本逻辑 + 发往渲染器的提交；不含 rAF 之外的浏览器合成/光栅）。表头就是这一段时间。
+  - **gap**：相邻两次 rAF 时间戳之差，即**实际帧间隔**。p50/p95 均为 10 秒窗口内约 600 帧的统计。
+  - 以前写的 1.30 ms 等数字来自 CDP `Performance.getMetrics` 的 TaskDuration/ScriptDuration（统计整个主线程任务，口径更宽），**不能**与 Godot 的 busy 横比，已废弃。
+
+  | 引擎 / 渲染 | 档位 | busy p50 (ms) | busy p95 (ms) | gap p50 (ms) | gap p95 (ms) | fps p50 | 存活敌人 |
+  |---|---|---:|---:|---:|---:|---:|---:|
+  | Cocos · 旧单图 `rig=0` | 1× | **0.6** | 0.9 | 16.7 | 16.7 | 59.9 | 20 |
+  | Cocos · 旧单图 `rig=0` | 4× | **2.5** | 3.6 | 16.7 | 16.8 | 59.9 | 20 |
+  | Cocos · 旧单图 `rig=0` | 6× | **4.2** | 6.0 | 16.7 | 16.7 | 59.9 | 20 |
+  | Cocos · 骨骼 `rig=1`（主角+4 类敌人） | 1× | **1.3** | 1.7 | 16.7 | 16.8 | 59.9 | 20 |
+  | Cocos · 骨骼 `rig=1` | 4× | **4.1** | 5.3 | 16.7 | 16.7 | 59.9 | 20 |
+  | Cocos · 骨骼 `rig=1` | 6× | **6.6** | 8.6 | 16.7 | 16.7 | 59.9 | 20 |
+  | Godot · 单图 `sprite` | 1× | 2.1 | 3.1 | 16.7 | 16.7 | 59.9 | 20 |
+  | Godot · 单图 `sprite` | 4× | 6.2 | 8.6 | 16.7 | 16.7 | 59.9 | 20 |
+  | Godot · 单图 `sprite` | 6× | 9.3 | 13.4 | 16.7 | 16.8 | 59.9 | 20 |
+  | Godot · 骨骼 `hero` | 1× | 6.0 | 7.1 | 16.7 | 16.8 | 59.9 | 20 |
+  | Godot · 骨骼 `hero` | 4× | 23.5 | 28.0 | 33.2 | 33.4 | 30.1 | 20 |
+  | Godot · 骨骼 `hero` | 6× | 40.2 | 50.0 | 50.0 | 50.1 | 20.0 | 20 |
+
+  - 原始数据：Cocos `tools/shots/bench-cocos-sprite.json`、`tools/shots/bench-cocos-skel.json`；Godot `demo_godot/tools/shots/bench-unified-sprite.json`、`bench-unified-hero.json`。两边的“骨骼”档不同：Cocos 的 `rig=1` 是主角与全部 4 类敌人同时骨骼化，Godot 的 `hero` 档按其脚本定义。
+  - 对照结论：在相同场景与相同测量点下，Cocos 骨骼档的 busy 只比自家单图档高 0.7 / 1.6 / 2.4 ms（1×/4×/6×，p50），三档 gap 都保持 16.7 ms（60 fps）；Godot 骨骼档 1× 已是 6.0 ms，4×/6× 分别掉到约 30/20 fps。纯渲染实现差异（Cocos 每个部件一个 Sprite + 纯 TS 矩阵合成；Godot 的骨骼运行时开销更重）。
 
 ## 实现差异
 
@@ -50,14 +87,17 @@
 
 ## 未完成项和已知问题
 
-- 22 张 UI 美术（摇杆、按钮、图标、头像、血条、卡牌、面板、Boss 标题）还没交付，目前用占位图。资源就绪后的更新流程：运行 `node tools/sync-assets.mjs`，构建 Web，运行 `node tools/bake-placeholders.mjs`（会删掉已到货的占位图），再构建一次。
+- UI 与特效素材已全部到货，预烘焙占位图机制保留作为缺图兜底（`tools/bake-placeholders.mjs`）。
+- 战斗 HUD 按 `_shared/UI_LAYOUT.md` 以 CSS 像素实现：主攻 34/36、闪跳 21/23、技能 22/23、大招 25/26（视觉/热区半径），触区互不交叠；同一按钮的第二根手指会被忽略。右上暂停旁常显「乃秀游戏 Demo」。
+- **HUD 缩放固定为 K = 720/390 ≈ 1.846**（UI_LAYOUT.md §1）。所有 CSS 数值 × K 得到 720p 设计坐标，**绝不使用物理像素高度做分母**。Cocos 原生端 `view.getFrameSize()` 返回物理像素（SM-G9980 为 3200×1440），早期版本用它算 `k = 720 / frameHeight`，结果 HUD 在真机上小了约 3.7 倍；现改为常量 K，并用 `view.getVisibleSize()`（设计单位，fitHeight 政策下恒为 720 高）反推视口 CSS 宽高。安全区 `sys.getSafeAreaRect()` 返回 UI 坐标（左下原点），换算 CSS 后取 `max(12, inset)`；同时修正了上下 inset 的取反错误。真机截图见 `tools/shots/device_hudfix_v4_battle.png`，HUD 占比与 844×390 浏览器预览一致（头像 44 CSS、血条 125 CSS）。
+- 主角与 4 类敌人（小鬼、灯笼怪、重甲、Boss）共 5 套骨骼动画已全部接入并默认开启，`?rig=0` 保留单图渲染供对比。
 - 共享配置直接使用，不再有本地覆盖。groundTop=440 和 sweep.range=200 已经合进共享的 game.json。
 - 所有资源在启动时一次性预加载，首屏约 9 MB。如果要上线，应该改成按波次分包，PNG 转 webp 或压缩纹理。
 
 ## APK 打包体验
 
-- **产物**：`_deliverables/ember-cocos.apk`，38.3 MB（debug，只含 arm64-v8a）。其中 `libcocos.so` 解压后 73 MB，是体积的大头。
-- **aapt2 核对**：package `com.yuen7.ember.cocos`，versionCode 1，label `烬刃·Cocos版`，minSdk 21，targetSdk 34，compileSdk 36，native-code 只有 `arm64-v8a`。主 Activity 的 `screenOrientation=6`（sensorLandscape），声明了 `android.hardware.screen.landscape`，带 roundIcon。apksigner 显示签名证书是 `CN=Android Debug`（`~/.android/debug.keystore`）。
+- **产物**：`_deliverables/ember-cocos.apk`，约 40.3 MB（versionCode 4，versionName 1.3，debug，只含 arm64-v8a；已包含全部 5 个角色骨骼部件、重制 HUD 与固定 K 缩放修复）。其中 `libcocos.so` 解压后 73 MB，是体积的大头。
+- **aapt2 核对**：package `com.yuen7.ember.cocos`，versionCode 4（versionName 1.3），label `烬刃·Cocos版`，minSdk 21，targetSdk 34，compileSdk 36，native-code 只有 `arm64-v8a`。主 Activity 的 `screenOrientation=6`（sensorLandscape），声明了 `android.hardware.screen.landscape`，带 roundIcon。apksigner 显示签名证书是 `CN=Android Debug`（`~/.android/debug.keystore`）。
 - **配置**：`tools/build/android.json` 通过 `--build "configPath=..."` 传入。字段包括 packageName、横屏的 orientation（landscapeLeft/Right）、apiLevel 34、appABIs `["arm64-v8a"]`、keystore 四项、sdkPath、ndkPath（27.1.12297006）、javaHome（JBR 17）、渲染后端 gles3、`debug: false`（关掉左下角的统计面板）。
 - **图标**：放在 `native/engine/android/res`，这个目录要提交，构建时会拷进工程。各 density 的 `ic_launcher`、`ic_launcher_round`、`ic_launcher_foreground`（按 108dp 画布内缩到 84dp）都由 `_shared/assets/ui/app-icon.png` 生成，另有 `mipmap-anydpi-v26` 的 adaptive XML，背景色 #2a1630。AndroidManifest 里手动补了 `android:roundIcon`。
 - **坑**：
@@ -65,5 +105,6 @@
   2. **原生端没有完整的 Canvas 2D**：`getContext('2d')` 返回 null。第一版 APK 在首页画占位图时抛出 `addColorStop of null`，结果黑屏，只有 1 个 draw call。修法：白色贴图改用原始 RGBA 像素生成 `ImageAsset`。还没到货的图先在 Web 上用 `tools/bake-placeholders.mjs` 烘焙成 PNG，放进 `resources/placeholders/`。运行时如果还缺图，就退回一张纯色贴图。
   3. 用 `window.setTimeout` 移除的输入锁和抽卡回调，统一改成 `tween().delay().call()`，由引擎调度，Web 和原生端行为一致。
   4. adb 冒烟时点不到按钮，其实是我把屏幕坐标算错了，触摸本身正常。加了一行 `input.on(TOUCH_START)` 日志才确认触摸已经进到引擎。另外 zsh 不会把 `$D` 拆成多个参数，`adb -s $D` 会失败，要用函数包一层。
+  5. **原生窗口尺寸是物理像素**：`view.getFrameSize()` 在 Android 上返回 3200×1440（DPR 4 级别），浏览器预览里返回 CSS 尺寸 844×390。同一份 `k = 720 / frameHeight` 在 Web 上得到 1.846，在真机上得到 0.5，HUD 缩小 3.7 倍。现在 HUD 只用固定 `K = 720/390`（UI_LAYOUT.md §1），视口宽高用 `view.getVisibleSize() / K` 得到 CSS 值，与设备分辨率无关。
 - **真机冒烟**：Samsung SM-G9980（Android 15，3200×1440），`adb install -r` 成功。启动后是横屏（ROTATION_90），首页 60 fps，进战斗后摇杆、普攻连击和炎月斩都正常，失败结算和“再来一局”也正常，logcat 里没有 JS 报错。只操作了本包，没动其他 App。
 - **无人物语音**：APK 解包后，没有任何文件名含 voice，也搜不到 `ult_voice` 或台词文本。包内共 56 个音频文件，即 28 个音效/BGM 各有 ogg 和 mp3 两份。

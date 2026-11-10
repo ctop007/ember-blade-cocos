@@ -8,6 +8,8 @@ import { BattleView } from './view/BattleView';
 import { SkillFx } from './view/SkillFx';
 import { Hud } from './view/Hud';
 import { TouchInput } from './view/TouchInput';
+import { RigTestView } from './view/RigTestView';
+import { SkelView } from './view/SkelView';
 import { Screens, onTap } from './view/Screens';
 const { ccclass } = _decorator;
 
@@ -15,6 +17,7 @@ const { ccclass } = _decorator;
 @ccclass('GameLaunch')
 export class GameLaunch extends Component {
     private cfg: any;
+    private rigTest: RigTestView | null = null;
     private world: World | null = null;
     private bv: BattleView | null = null;
     private sfx: SkillFx | null = null;
@@ -31,6 +34,8 @@ export class GameLaunch extends Component {
 
     async start() {
         view.setDesignResolutionSize(1280, 720, ResolutionPolicy.FIXED_HEIGHT);
+        // skeletal hero is the default; ?rig=0 / ?rig=1 forces old/skel (comparison switch)
+        try { const q = (globalThis as any).window?.location?.search || ''; const m = /[?&]rig=(\d)/.exec(q); if (m) SkelView.enabled = m[1] !== '0'; } catch (e) { /* default */ }
         const vs = view.getVisibleSize();
         this.node.getComponent(UITransform)?.setContentSize(vs.width, vs.height);
         this.gameRoot = node('Game', this.node);
@@ -137,6 +142,7 @@ export class GameLaunch extends Component {
 
     // ---------------- loop ----------------
     update(dtReal: number) {
+        if (this.rigTest) this.rigTest.update(Math.min(.05, dtReal));
         this.fpsAcc += dtReal; this.fpsN++;
         if (this.fpsAcc >= 0.5) { this.fps = this.fpsN / this.fpsAcc; this.fpsAcc = 0; this.fpsN = 0; }
         if (!this.inBattle || !this.world || !this.bv || !this.hud || !this.inp) return;
@@ -203,6 +209,64 @@ export class GameLaunch extends Component {
             return { x: r.left + (x + vs.width / 2) / vs.width * r.width, y: r.top + (1 - (y + vs.height / 2) / vs.height) * r.height };
         };
         win.__AI_BRIDGE__ = {
+            // ---- minimal surface shared with the Godot benchmark (tools/bench_unified.mjs) ----
+            start() { if (!self.inBattle) self.startBattle(); return true; },
+            full() {
+                const w = self.world, btn = self.hud ? self.hud.button('attack') : null;
+                return {
+                    screen: self.inBattle ? 'battle' : 'home',
+                    game: w ? {
+                        enemies: w.enemies.filter(e => e.state !== 'dead').map(e => ({ id: e.id, type: e.type, hp: Math.round(e.hp), x: Math.round(e.x), y: Math.round(e.y), state: e.state })),
+                        hero: { x: Math.round(w.hero.x), y: Math.round(w.hero.y), hp: Math.round(w.hero.hp), state: w.hero.state },
+                        phase: w.phase, wave: w.wave + 1,
+                    } : { enemies: [] },
+                    layout: { attack: btn ? [btn.position.x, btn.position.y] : null },
+                };
+            },
+            clearEnemies() {
+                const w = self.world; if (!w) return 0;
+                const n = w.enemies.length + w.spawnQueue.length;
+                for (const e of w.enemies) e.state = 'dead';
+                w.enemies.length = 0; w.spawnQueue.length = 0; w.projs.length = 0; w.zones.length = 0;
+                return n;
+            },
+            toCss(x: number, y: number) { const p = canvasPt(x, y); return [p.x, p.y]; },
+            rigTest(on = true) {
+                if (self.rigTest) { self.rigTest.root.destroy(); self.rigTest = null; }
+                if (on) self.rigTest = new RigTestView(self.uiRoot);
+            },
+            rigFreeze(on: boolean) { if (self.rigTest) self.rigTest.frozen = on; },
+            hudDebug() {
+                if (!self.hud) return null;
+                const out: any = {};
+                for (const id of ['attack', 'dodge', 'jump', 'skill1', 'skill2', 'skill3', 'ult']) {
+                    const n = self.hud.button(id); if (!n) { out[id] = null; continue; }
+                    const wp = n.worldPosition;
+                    out[id] = { x: Math.round(n.position.x), y: Math.round(n.position.y), wp: [Math.round(wp.x), Math.round(wp.y)], active: n.activeInHierarchy, scale: n.scale.x, size: [n.getComponent(UITransform)?.width, n.getComponent(UITransform)?.height], children: n.children.length };
+                }
+                const dump = (id: string) => {
+                    const n = self.hud!.button(id); if (!n) return null;
+                    const tw: any = (window as any).cc?.director?.getScene?.();
+                    return n.children.map((c: any) => ({ name: c.name, active: c.activeInHierarchy, pos: [Math.round(c.position.x), Math.round(c.position.y)], size: [Math.round(c.getComponent(UITransform)?.width || 0), Math.round(c.getComponent(UITransform)?.height || 0)], scale: c.scale.x, op: c.getComponent('cc.UIOpacity')?.opacity, color: c.getComponent('cc.Sprite')?.color ? [c.getComponent('cc.Sprite').color.r, c.getComponent('cc.Sprite').color.g, c.getComponent('cc.Sprite').color.b, c.getComponent('cc.Sprite').color.a] : null }));
+                };
+                out.dump1 = dump('skill1'); out.dump3 = dump('skill3');
+                return out;
+            },
+            rigMode(on: boolean) {
+                SkelView.enabled = on;
+                if (self.bv) {
+                    self.bv.hero.setSkel(on, self.cfg);
+                    for (const id in self.bv.enemies) self.bv.enemies[id].setSkel(on, self.cfg);
+                }
+                return SkelView.enabled;
+            },
+            rigInfo() {
+                const sk = self.bv?.hero.skel, rigs: any = {};
+                for (const k in Assets.rigs) rigs[k] = { clips: Object.keys(Assets.rigs[k].anims).length, parts: Object.keys(Assets.rigs[k].parts).length };
+                const enemySkels = self.bv ? Object.keys(self.bv.enemies).map(id => { const v = self.bv!.enemies[id as any]; return { who: v.who, skel: !!v.skel, clip: v.skel?.player.name || v.pose }; }) : [];
+                return { skel: !!sk, clips: sk ? Object.keys(sk.player.clips).length : 0, parts: Object.keys(Assets.heroParts).length, rigs, enemySkels };
+            },
+            rigState() { const r = self.rigTest; return r ? { name: r.player.name, time: r.player.time, events: r.eventCounts, tip: r.player.socket('spearTip'), triangles: r.trail.indices.length / 3 } : null; },
             state() {
                 const w = self.world;
                 if (!w) return { phase: 'home', fps: Math.round(self.fps) };
@@ -230,6 +294,7 @@ export class GameLaunch extends Component {
             timeScale(x: number) { self.timeScale = x; },
             fillRage() { if (self.world) self.world.hero.rage = self.cfg.player.maxRage; },
             god(on: boolean) { if (self.world) self.world.god = !!on; },
+            freezeWaves(on: boolean) { if (self.world) self.world.debugFreezeWaves = !!on; return !!self.world?.debugFreezeWaves; },
             // helpers for Playwright real-touch tests: client pixel position of UI elements
             buttonPos(id: string) {
                 if (!self.hud) return null;

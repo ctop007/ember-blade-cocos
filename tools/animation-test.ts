@@ -1,0 +1,45 @@
+import { RigPlayer, ease } from '../assets/scripts/animation/RigPlayer';
+import { testRig, testClips } from '../assets/scripts/animation/TestRig';
+import { TrailStrip } from '../assets/scripts/animation/TrailStrip';
+import { World } from '../assets/scripts/core/world';
+import { updateHero, travelCurve } from '../assets/scripts/core/hero';
+import { emptyInput } from '../assets/scripts/core/types';
+declare const require: any;
+const assert = require('node:assert/strict');
+declare const process: any;
+const cfg = JSON.parse(require('node:fs').readFileSync(process.cwd() + '/assets/resources/config/game.json', 'utf8'));
+const clone = (x: any) => JSON.parse(JSON.stringify(x));
+const p = new RigPlayer(clone(testRig), clone(testClips));
+p.play('attack1', { windup: .12, active: .16, recovery: .56 });
+assert.equal(p.sourceTime(.16), .08); assert.equal(p.sourceTime(.56), .28);
+p.update(.16); assert.equal(p.events.filter(e => e.name === 'hit').length, 1);
+p.update(.05); assert.equal(p.slots.spear.image, 'smear'); assert.equal(p.slots.spear.z, 6);
+p.update(.06); assert.equal(p.slots.spear.image, 'spear');
+const before = JSON.stringify([p.pose, p.world, p.time]); p.update(.2, true);
+assert.equal(JSON.stringify([p.pose, p.world, p.time]), before);
+p.play('idle'); const rot = p.pose.arm.rot; p.update(.04); assert.notEqual(p.pose.arm.rot, rot); p.update(.1); assert.equal(p.pose.arm.rot, 0);
+const r = clone(testRig); r.bones[4].rot = 20;
+const sparse = { duration: 1, loop: false, bones: { arm: [{ t: 0, rot: 0 }, { t: .5, x: 10 }, { t: 1, rot: 60 }] } };
+const q = new RigPlayer(r, { sparse }); q.play('sparse'); q.update(.5); assert.equal(q.pose.arm.rot, 50); assert.equal(q.pose.arm.x, 18);
+r.keyMode = 'absolute'; const abs = new RigPlayer(r, { sparse }); abs.play('sparse'); abs.update(.5); assert.equal(abs.pose.arm.rot, 30); assert.equal(abs.pose.arm.x, 10);
+const lp = new RigPlayer(clone(testRig), { loop: { duration: 1, loop: true, events: [{ t: 0, name: 'start' }, { t: .5, name: 'mid' }] } });
+lp.play('loop'); lp.update(2.6); assert.equal(lp.events.length, 6); assert.ok(Math.abs(lp.time - .6) < 1e-9);
+for (const name of ['linear','quadIn','quadOut','quadInOut','cubicIn','cubicOut','expoOut','backOut','sineInOut','step']) { assert.ok(Math.abs(ease(name, 0)) < 1e-8); assert.ok(Math.abs(ease(name, 1) - 1) < 1e-8); }
+const trail = new TrailStrip(); trail.enabled = true; trail.update(.01, { x: 0, y: 0 }); trail.update(.01, { x: 30, y: 15 }); assert.equal(trail.indices.length, 6);
+const verts = JSON.stringify(trail.vertices); trail.update(.1, { x: 40, y: 10 }, true); assert.equal(JSON.stringify(trail.vertices), verts);
+trail.enabled = false; trail.update(.2, null); assert.equal(trail.indices.length, 0);
+for (let i = 0; i < 600; i++) { p.update(1 / 60); assert.ok(Number.isFinite(p.world.hair2.x)); }
+assert.throws(() => new RigPlayer({ version: 1, bones: [{ name: 'a', parent: 'b' }], slots: [] }, {}));
+const w = new World(cfg); w.start(); w.enemies = []; const h = w.hero;
+updateHero(w, .01, { ...emptyInput(), attackPressed: true });
+updateHero(w, .01, { ...emptyInput(), dodgePressed: true }); assert.equal(h.state, 'attack', 'cannot dodge before hit');
+for (let i = 0; i < 16; i++) updateHero(w, .01, emptyInput()); assert.equal(h.state, 'dodge', 'buffered dodge cancels recovery');
+const w2 = new World(cfg); w2.start(); w2.enemies = [];
+updateHero(w2, .01, { ...emptyInput(), attackPressed: true });
+for (let i = 0; i < 9; i++) updateHero(w2, .01, emptyInput());
+updateHero(w2, .01, { ...emptyInput(), attackPressed: true });
+for (let i = 0; i < 7; i++) updateHero(w2, .01, emptyInput()); assert.equal(w2.hero.atkStep, 1, 'next swing cancels recovery');
+w2.hero.state = 'hurt'; w2.hero.st = 0; w2.hero.attackBuffer = .01; updateHero(w2, .02, emptyInput()); assert.equal(w2.hero.attackBuffer, 0, 'old input expires');
+for (const fps of [30, 60, 144]) { let distance = 0; for (let i = 1; i <= fps; i++) distance += 220 * (travelCurve(i / fps) - travelCurve((i - 1) / fps)); assert.ok(Math.abs(distance - 220) < 1e-8); }
+w2.hitstop = .1; const st = w2.hero.st; w2.step(.02, { ...emptyInput(), attackPressed: true }); assert.equal(w2.hero.st, st);
+console.log('PASS animation: phases, events, sparse tracks, relative/absolute, slots/z, easing, crossfade, springs, ribbon, freeze; core buffers/cancels/curve');

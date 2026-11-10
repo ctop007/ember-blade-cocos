@@ -1,0 +1,13 @@
+import { chromium } from 'playwright';
+const W=+(process.argv[2]||844),H=+(process.argv[3]||390),wait=+(process.argv[4]||4000);
+const b=await chromium.launch({channel:'chrome'});
+const p=await b.newPage({viewport:{width:W,height:H},hasTouch:true,isMobile:true,deviceScaleFactor:2});
+await p.goto('http://127.0.0.1:8942/?debug');
+await p.waitForFunction(()=>window.__AI_BRIDGE__?.state().phase==='home');
+await p.waitForTimeout(700);
+const sp=await p.evaluate(()=>window.__AI_BRIDGE__.uiPos(0,-88)); await p.touchscreen.tap(sp.x,sp.y);
+await p.waitForFunction(()=>window.__AI_BRIDGE__.state().phase==='fight',null,{timeout:15000});
+await p.waitForTimeout(wait);
+await p.evaluate(()=>window.__AI_BRIDGE__.god(true));
+await p.screenshot({path:`shots/hud_${W}.png`});
+await b.close();

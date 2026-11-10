@@ -1,0 +1,22 @@
+import { chromium } from 'playwright';
+const b=await chromium.launch({channel:'chrome'});
+const p=await b.newPage({viewport:{width:844,height:390},hasTouch:true,isMobile:true,deviceScaleFactor:2});
+await p.goto('http://127.0.0.1:8942/?debug');
+await p.waitForFunction(()=>window.__AI_BRIDGE__?.state().phase==='home');
+await p.waitForTimeout(700);
+const sp=await p.evaluate(()=>window.__AI_BRIDGE__.uiPos(0,-88)); await p.touchscreen.tap(sp.x,sp.y);
+await p.waitForFunction(()=>window.__AI_BRIDGE__.state().phase==='fight',null,{timeout:15000});
+await p.waitForTimeout(4000);
+const info=await p.evaluate(()=>{
+  const cc=window.cc; let n=null, hud=null; const names=[];
+  const walk=(x,d)=>{ names.push(' '.repeat(d)+x.name); if(x.name==='btn_skill3'){n=x;hud=x.parent;} x.children.forEach(c=>walk(c,d+1)); };
+  walk(cc.director.getScene(),0);
+  if(!n) return names.slice(0,80);
+  hud.children.forEach((c,i)=>{ if(i>=14 21 && i<) c.active=false; });
+  const wp=n.worldPosition;
+  return { siblings: hud.children.length, idx: n.getSiblingIndex(), wp:[Math.round(wp.x),Math.round(wp.y),Math.round(wp.z)], parent:hud.name };
+});
+console.log(info);
+await p.waitForTimeout(400);
+await p.screenshot({path:'shots/probe.png'});
+await b.close();

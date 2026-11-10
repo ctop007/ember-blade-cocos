@@ -8,12 +8,16 @@ export function createHero(cfg: any): Hero {
         x: P.spawnX, y: P.spawnY, z: 0, vz: 0, face: 1,
         hp: P.maxHp, maxHp: P.maxHp, mp: P.maxMp, maxMp: P.maxMp, rage: 0,
         state: 'idle', st: 0, atkStep: 0, atkHitDone: false, comboWindowT: 0, chainQueued: false, holdT: 0, lungeLeft: 0,
+        attackBuffer: 0, dodgeBuffer: 0,
         dodgeCd: 0, dodgeDx: 1, dodgeDy: 0, dodgeFlameAcc: 0, invuln: 0, flashT: 0, kx: 0,
         castSkill: null, castDur: 0, castStep: 0, cds: { crescent: 0, skyfall: 0, meteorSpear: 0 },
         nextCrit: false, slamming: false, hitSet: {}, thrustFromX: 0, moving: false,
     };
 }
 
+/** Active hit must complete before recovery may be cancelled. Optional per-step tuning stays in config. */
+export function attackCancelAt(step: any): number { return Math.max(step.hitAt, step.cancelAt ?? step.hitAt + .06); }
+export function travelCurve(u: number): number { return 1 - Math.pow(1 - Math.max(0, Math.min(1, u)), 3); }
 let DT = 0;
 function setState(h: Hero, s: Hero['state']) { h.state = s; h.st = 0; }
 
@@ -53,9 +57,13 @@ export function updateHero(w: World, dt: number, inp: InputFrame) {
     // ------- hold tracking -------
     if (inp.attackHeld) h.holdT += dt; else if (!(s === 'charge')) h.holdT = 0;
 
+    // Timers advance only with simulation time (so hitstop preserves queued input).
+    h.attackBuffer = inp.attackPressed ? A.chainBuffer : Math.max(0, h.attackBuffer - dt);
+    h.dodgeBuffer = inp.dodgePressed ? A.chainBuffer : Math.max(0, h.dodgeBuffer - dt);
+    const recovering = s === 'attack' && h.atkHitDone && h.st >= attackCancelAt(A.steps[h.atkStep]);
     // ------- actions with priority -------
-    const canCancel = free || s === 'attack' || s === 'land' || s === 'thrustRec' || s === 'charge' || (s === 'cast' && h.st > h.castDur * 0.85);
-    if (inp.dodgePressed && h.dodgeCd <= 0 && (canCancel || s === 'hurt') && grounded) { startDodge(w, h, inp); }
+    const canCancel = free || recovering || s === 'land' || s === 'thrustRec' || s === 'charge' || (s === 'cast' && h.st > h.castDur * 0.85);
+    if (h.dodgeBuffer > 0 && h.dodgeCd <= 0 && (canCancel || s === 'hurt') && grounded) { h.dodgeBuffer = h.attackBuffer = 0; startDodge(w, h, inp); }
     else if (inp.ult && (free || s === 'attack' || s === 'land' || s === 'jump') && h.rage >= cfg.skills.ultimate.rage) { w.startUlt(); return; }
     else if ((inp.skill1 || inp.skill2 || inp.skill3) && grounded && (free || s === 'attack' || s === 'land' || s === 'thrustRec')) {
         const sk: SkillName = inp.skill1 ? 'crescent' : inp.skill2 ? 'skyfall' : 'meteorSpear';
@@ -65,10 +73,10 @@ export function updateHero(w: World, dt: number, inp: InputFrame) {
         setState(h, 'jump'); h.vz = J.velocity; h.slamming = false;
         w.emit('jump', { x: h.x, y: h.y });
     }
-    else if (inp.attackPressed) {
-        if (h.state === 'jump' && h.z > 30) { setState(h, 'slam'); h.slamming = true; h.vz = -J.slamVelocity; w.emit('slamStart', { x: h.x, y: h.y, z: h.z }); }
+    else if (h.attackBuffer > 0) {
+        if (h.state === 'jump' && h.z > 30) { h.attackBuffer = 0; setState(h, 'slam'); h.slamming = true; h.vz = -J.slamVelocity; w.emit('slamStart', { x: h.x, y: h.y, z: h.z }); }
         else if (free || s === 'land') startAttack(w, h, inp, h.comboWindowT > 0 ? h.atkStep : 0);
-        else if (s === 'attack') h.chainQueued = true;
+        else if (recovering) startAttack(w, h, inp, (h.atkStep + 1) % A.steps.length);
     }
 
     // ------- state update -------
@@ -119,19 +127,17 @@ function startAttack(w: World, h: Hero, inp: InputFrame, step: number) {
     if (Math.abs(inp.mx) > 0.2) h.face = inp.mx > 0 ? 1 : -1;
     h.atkStep = step;
     const stp = w.cfg.attack.steps[h.atkStep];
-    setState(h, 'attack'); h.atkHitDone = false; h.chainQueued = false; h.lungeLeft = stp.lunge; h.comboWindowT = 0;
+    setState(h, 'attack'); h.attackBuffer = 0; h.atkHitDone = false; h.chainQueued = false; h.lungeLeft = stp.lunge; h.comboWindowT = 0;
     w.emit('swing', { step: h.atkStep, x: h.x, y: h.y, face: h.face });
 }
 
 function updateAttack(w: World, h: Hero, inp: InputFrame, dt: number) {
     const A = w.cfg.attack, stp = A.steps[h.atkStep];
     move(w, h, inp, A.moveWhileAttackingScale);
-    // lunge in first 40% of the swing
-    if (h.lungeLeft > 0) {
-        const v = stp.lunge / (stp.duration * 0.4);
-        const d = Math.min(h.lungeLeft, v * dt);
-        h.x += d * h.face; h.lungeLeft -= d;
-    }
+    // Integrate displacement, rather than speed, so distance is invariant across frame rates.
+    const desired = stp.lunge * travelCurve(h.st / (stp.duration * .4));
+    const d = Math.min(h.lungeLeft, Math.max(0, desired - (stp.lunge - h.lungeLeft)));
+    h.x += d * h.face; h.lungeLeft -= d;
     if (!h.atkHitDone && h.st >= stp.hitAt) {
         h.atkHitDone = true;
         for (const e of w.enemies) {
@@ -143,7 +149,7 @@ function updateAttack(w: World, h: Hero, inp: InputFrame, dt: number) {
     if (inp.attackHeld && h.holdT >= A.chargeTime && h.atkHitDone && h.atkStep === 0) { enterCharge(w, h); return; }
     if (h.st >= stp.duration) {
         const next = (h.atkStep + 1) % A.steps.length;
-        if (h.chainQueued) startAttack(w, h, inp, next);
+        if (h.attackBuffer > 0) startAttack(w, h, inp, next);
         else { h.atkStep = next; h.comboWindowT = next === 0 ? 0 : A.comboWindow; setState(h, 'idle'); }
     }
 }
@@ -155,8 +161,7 @@ function startThrust(w: World, h: Hero) {
 
 function updateThrust(w: World, h: Hero, dt: number) {
     const T = w.cfg.attack.chargedThrust;
-    const v = T.distance / T.duration;
-    h.x += v * h.face * dt;
+    h.x += T.distance * h.face * (travelCurve(h.st / T.duration) - travelCurve((h.st - dt) / T.duration));
     for (const e of w.enemies) {
         if (e.state === 'dead' || h.hitSet[e.id]) continue;
         const r = w.cfg.enemies[e.type].radius;
