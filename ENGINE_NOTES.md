@@ -1,5 +1,7 @@
 # ENGINE_NOTES：Cocos Creator 3.8.8
 
+实现笔记：性能数字、骨骼动画和 APK 打包记录。试玩方式、操作说明和构建入口在 [README](README.md)。
+
 ## 运行方式
 
 - Web：`python3 -m http.server 8942 -d build/web-mobile`，然后打开 <http://127.0.0.1:8942/>（加 `?debug` 会挂载 `window.__AI_BRIDGE__`）。
